@@ -8,6 +8,9 @@ terraform {
       source  = "integrations/github"
       version = "~> 6.0"
     }
+    azuresql = {
+      source  = "jonascrevecoeur/azuresql"
+    }
   }
   backend "azurerm" {
     resource_group_name = "terraform-state"
