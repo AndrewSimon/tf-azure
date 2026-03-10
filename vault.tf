@@ -19,7 +19,7 @@ resource "azurerm_key_vault" "vault" {
     object_id = local.current_user_id
 
     key_permissions    = ["List", "Create", "Delete", "Get", "Purge", "Recover", "Update", "GetRotationPolicy", "SetRotationPolicy"]
-    secret_permissions = ["Set"]
+    secret_permissions = ["Set", "Get", "List", "Delete", "Purge"]
   }
 }
 
@@ -45,6 +45,9 @@ resource "azurerm_key_vault_secret" "adminpass" {
   name         = "admin-password"
   value        = var.adminpass
   key_vault_id = azurerm_key_vault.vault.id
+  depends_on = [
+    azurerm_key_vault.vault
+  ]
   lifecycle {
     ignore_changes = [
       ## To change password, run terraform destroy azurerm_key_vault_secret.adminpass first
@@ -56,11 +59,13 @@ resource "azurerm_key_vault_secret" "adminpass" {
 data "azurerm_key_vault" "vault" {
   name = "TLC-KeyVault"
   resource_group_name = azurerm_resource_group.demo.name
+  depends_on = [ azurerm_key_vault.vault ]
 }
 
 data "azurerm_key_vault_secret" "password" {
   name = "admin-password"
   key_vault_id = data.azurerm_key_vault.vault.id
+  depends_on = [ azurerm_key_vault_secret.adminpass ]
 }
 
 

@@ -8,6 +8,7 @@ This plan will:
 4. Create a VM instance and network interface in the public subnet
 5. Assign a public IP to the VM instance
 6. Output the public IP so you can connect to your instance
+7. Creates a key vault, key policy, and password secret (for MSSQL)
 
 ## Requirements
 > Install the following:
@@ -34,16 +35,22 @@ This plan will:
 
 ## Terraform Usage example
 
-1. terraform init  #perform only once, after first git clone
-2. terraform plan  #see what will happen - aka preview
-3. terraform apply #implement what will happen - aka deploy
-4. terraform destroy #deletes ALL of the resources created by this plan.  The terraform backend storage account you created by hand will not be destroyed.
+1. terraform init  #Perform only once, after first git clone
+2. terraform plan  #Plan does not require a password
+3. terraform apply -var="adminpass=my_strong_pass" #First time apply must include a password 
+4. terraform apply #Subsequent values of var ignored until deleted first
+6. terraform destroy -target azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
+7. terraform destroy #deletes ALL of the resources created by this plan.  
+
+Note: due to Azure vault design, destroying vault purges secrets, which has a 10 minute delay, it is not hanging :)  The terraform backend storage account you created by hand will not be destroyed.
+--> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
 
 
 ## Meta
 
 Andrew Simon – asimon@technology-leadership.com
 
-Created 3-9-2026
+Created 3-09-2026
+Updated 3-10-2026
 
 Distributed under the Apache 2.0 license.

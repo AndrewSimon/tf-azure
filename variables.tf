@@ -6,5 +6,5 @@ variable "msi_id" {
 variable "adminpass" {
   type        = string
   description = "Never commit real passwords to a repo"
-  default     = null
+  default     = ""
 }
