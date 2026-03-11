@@ -42,7 +42,7 @@ This plan will:
 6. terraform destroy -target azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
 7. terraform destroy #deletes ALL of the resources created by this plan.  
 
-Note: due to Azure vault design, destroying vault purges secrets, which has a 10 minute delay, it is not hanging :)  The terraform backend storage account you created by hand will not be destroyed.
+Note: due to Azure vault design, destroying vault purges secrets, which awaits a timeout, CTL+C to exit :)  The terraform backend storage account you created by hand will not be destroyed.
 --> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
 
 
