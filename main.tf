@@ -167,7 +167,7 @@ locals { repo = basename(var.repo_name) }
 
 # Create a repository secret (aka webhook secret)
 resource "github_actions_secret" "webhook_secret" {
-  repository      = "${local.repo}"
+  repository      = "AndrewSimon/tf-azure"
   secret_name     = "WEBHOOK_SECRET_TOKEN"
   value = "${random_password.password.result}"
   lifecycle {
