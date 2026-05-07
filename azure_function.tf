@@ -12,9 +12,9 @@ os_type = "Linux"
 sku_name = "Y1" # Consumption plan
 }
 
-# Linux Function App (best for Python)
+# Linux Function App (best for Python) - name must be unique!
 resource "azurerm_linux_function_app" "demo" {
-name = "demo-function-app"
+name = "tlc-function-app"
 location = azurerm_resource_group.demo.location
 resource_group_name = azurerm_resource_group.demo.name
 service_plan_id = azurerm_service_plan.demo.id
