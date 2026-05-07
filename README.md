@@ -9,6 +9,8 @@ This plan will:
 5. Assign a public IP to the VM instance
 6. Output the public IP so you can connect to your instance
 7. Creates a key vault, key policy, and password secret (for MSSQL)
+8. Creates an Azure Function (you must request a VM quota manually)
+9. Creates a Gitthub webhook
 
 ## Requirements
 > Install the following:
@@ -24,6 +26,14 @@ This plan will:
 2. Storage account name --> your_unique_storage_account_name  (must be unique across all Azure)
 3. Data Storage --> Containers --> + Add container --> demo-tf-state
  
+## Request Azure App Function Quota for App Service in your Subscription
+>Request 1 VM or more for App Service to use to run the python function
+
+1. Quotas|My quotas --> Subscriptions --> Azure Subscription Name
+2. Provider: App Service --> Region (select the region to deploy)
+3. Select the VM type, the 'B1' is small and affordable. It only needs to run our small python script (which, when triggered by the Webhook, starts another VM that will be our GH Runner VM).
+
+
 ## Terraform configuration setup
 >Update the main.tf azurerm backend with the newly created storage account name from above
 

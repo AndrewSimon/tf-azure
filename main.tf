@@ -30,6 +30,21 @@ resource "azurerm_resource_group" "demo" {
   location = "East US"
 }
 
+# Create a storage account for the apps, not terraform state
+resource "azurerm_storage_account" "demo" {
+  name                     = "tlcdemostorageaccount"
+  resource_group_name      = azurerm_resource_group.demo.name
+  location                 = azurerm_resource_group.demo.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_storage_container" "function_code_container" {
+  name                  = "function-code"
+  storage_account_name  = azurerm_storage_account.demo.name
+  container_access_type = "private"
+}
+
 resource "azurerm_virtual_network" "demo" {
   name                = "demo"
   address_space       = ["10.0.0.0/16"]
@@ -118,33 +133,53 @@ resource "azurerm_network_interface_security_group_association" "sg_assoc" {
   network_security_group_id = azurerm_network_security_group.public.id
 }
 
-resource "azurerm_linux_virtual_machine" "tlc_vm" {
-  name                = "TLC"
-  location            = azurerm_resource_group.demo.location
-  resource_group_name = azurerm_resource_group.demo.name
-  size                = "Standard_DC1s_v3"
-  admin_username      = "adminuser"
-  network_interface_ids = [azurerm_network_interface.eth0.id]
-  disable_password_authentication = true
+# "azurerm_linux_virtual_machine" "tlc_vm" {
+#  name                = "TLC"
+#  location            = azurerm_resource_group.demo.location
+#  resource_group_name = azurerm_resource_group.demo.name
+#  size                = "Standard_DC1s_v3"
+#  admin_username      = "adminuser"
+#  network_interface_ids = [azurerm_network_interface.eth0.id]
+#
+#  os_disk {
+#    name                 = "TLC-demo-hdd1"
+#    caching              = "ReadWrite"
+#    storage_account_type = "Standard_LRS"
+#  }
+#
+#  source_image_reference {
+#    publisher = "Canonical"
+#    offer     = "0001-com-ubuntu-server-jammy"
+#    sku       = "22_04-lts-gen2"
+#    version   = "latest"
+#  }
+#}
 
-  admin_ssh_key {
-    username = "adminuser"
-    public_key = file("~/.ssh/authorized_keys")
-  }
+# Create random password to be stored
+resource "random_password" "password" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
 
-  os_disk {
-    name                 = "TLC-demo-hdd1"
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
+# Parse repo_name to get repo without account
+locals { repo = basename(var.repo_name) }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
+# Create a repository secret (aka webhook secret)
+resource "github_actions_secret" "webhook_secret" {
+  repository      = "${local.repo}"
+  secret_name     = "WEBHOOK_SECRET_TOKEN"
+  value = "${random_password.password.result}"
+  lifecycle {
+    ignore_changes = [
+      ## To change password, run terraform destroy azurerm_key_vault_secret.adminpass first
+      value
+    ]
   }
 }
+#data "github_actions_registration_token" "dynamic_runner" {
+#  repository = "${local.repo}"
+#}
 
 output "public_ip_address" {
   value = azurerm_public_ip.demo_ip.ip_address
