@@ -1,4 +1,6 @@
 .terraform/
 *.tfsta*
 *.tfvars
-.terrafor*.
+.terrafor*
+*.py
+

@@ -1,12 +1,13 @@
 terraform {
+  required_version = ">= 1.13.1"
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 4.0"
     }
     github = {
       source  = "integrations/github"
-      version = "~> 6.0"
+      version = "~> 6.8.3"
     }
     azuresql = {
       source  = "jonascrevecoeur/azuresql"
@@ -21,7 +22,16 @@ terraform {
 }
 
 provider "azurerm" {
- features {} 
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  } 
+}
+
+provider "github" {
+  owner = "${local.owner}"  # The target GitHub organization or user account [7]
+  token = "${var.token}"
 }
 
 # Resources: RG, VNet, Subnet, PIP, NSG, NIC, VM
@@ -32,7 +42,7 @@ resource "azurerm_resource_group" "demo" {
 
 # Create a storage account for the apps, not terraform state
 resource "azurerm_storage_account" "demo" {
-  name                     = "tlcdemostorageaccount"
+  name                     = "${var.storage_account}"
   resource_group_name      = azurerm_resource_group.demo.name
   location                 = azurerm_resource_group.demo.location
   account_tier             = "Standard"
@@ -40,9 +50,9 @@ resource "azurerm_storage_account" "demo" {
 }
 
 resource "azurerm_storage_container" "function_code_container" {
-  name                  = "function-code"
-  storage_account_name  = azurerm_storage_account.demo.name
-  container_access_type = "private"
+  name                  = "${var.storage_container}"
+  storage_account_id  = azurerm_storage_account.demo.id
+  container_access_type = "blob"
 }
 
 resource "azurerm_virtual_network" "demo" {
@@ -163,17 +173,23 @@ resource "random_password" "password" {
 }
 
 # Parse repo_name to get repo without account
-locals { repo = basename(var.repo_name) }
+locals { 
+  repo  = basename(var.repo_name)
+  owner = dirname(var.repo_name)
+}
 
 # Create a repository secret (aka webhook secret)
 resource "github_actions_secret" "webhook_secret" {
-  repository      = "AndrewSimon/tf-azure"
+  repository      = "${local.repo}"
   secret_name     = "WEBHOOK_SECRET_TOKEN"
-  value = "${random_password.password.result}"
+  plaintext_value = "${random_password.password.result}"
+  depends_on = [
+    random_password.password
+  ]
   lifecycle {
     ignore_changes = [
       ## To change password, run terraform destroy azurerm_key_vault_secret.adminpass first
-      value
+      plaintext_value
     ]
   }
 }
