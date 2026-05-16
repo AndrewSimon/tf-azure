@@ -45,7 +45,6 @@ This plan will:
 
 ## Pip installs on Windows, upgrade pip3 and install modules
 1. python3.9.exe -m pip install --upgrade pip
-2. pip3 install azure-identity
 
 ## Terraform Usage example
 
