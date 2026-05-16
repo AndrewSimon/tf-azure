@@ -15,6 +15,7 @@ variable "webhook" {
 }
 # Use "accountname/repository" format
 variable "repo_name" {
+  description = "Use 'account/repo' portion of github url, tf will parse, as needed"
   default     = "AndrewSimon/tf-azure"
 }
 variable "max_instances" {
@@ -26,4 +27,19 @@ variable "min_instances" {
 description = "Manimum number of running instances allowed by lambda_handler. Keep high if terminating instances at completion"
   type        = string
   default     = "1"
+}
+variable "token" {
+description = "Github PAT - never commit tokens. Use cmd line option -var=gh_token=mytoken"
+  type        = string
+  default     = ""
+}
+variable "storage_account" {
+description = "Demo function storage accounts gets destroyed, thus terreform state storage account should differt"
+  type        = string
+  default     = "tlcdemostorageaccount"
+}
+variable "storage_container" {
+description = "Demo function's storage container name - kind of like filename"
+  type        = string
+  default     = "function-code"
 }

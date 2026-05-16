@@ -9,34 +9,36 @@ name = "demo-plan"
 location = azurerm_resource_group.demo.location
 resource_group_name = azurerm_resource_group.demo.name
 os_type = "Linux"
-sku_name = "Y1" # Consumption plan
+	sku_name = "FC1" # Consumption plan
 }
 
 # Linux Function App (best for Python) - name must be unique!
-resource "azurerm_linux_function_app" "demo" {
-name = "tlc-function-app"
-location = azurerm_resource_group.demo.location
-resource_group_name = azurerm_resource_group.demo.name
-service_plan_id = azurerm_service_plan.demo.id
-storage_account_name = azurerm_storage_account.demo.name
-storage_account_access_key = azurerm_storage_account.demo.primary_access_key
-https_only = true
+resource "azurerm_function_app_flex_consumption" "demo" {
+  name                       = "tlc-function-app"
+  resource_group_name        = azurerm_resource_group.demo.name
+  location                   = azurerm_resource_group.demo.location
+  service_plan_id            = azurerm_service_plan.demo.id
+  storage_container_endpoint = "https://tlcdemostorageaccount.blob.core.windows.net/function-code"
+  storage_container_type     = "blobContainer"
+  storage_authentication_type = "StorageAccountConnectionString"
+  storage_access_key          = azurerm_storage_account.demo.primary_access_key
+  # Critical Flex Consumption Settings
+  maximum_instance_count = 3
+  instance_memory_in_mb  = 2048
+  
+  # Runtime specific configuration
+  runtime_name        = "python"
+  runtime_version     = "3.12"
 
-site_config {
-    application_stack {
-      python_version = "3.12"
+  site_config {
+    # CORS (Optional - example)
+    cors {
+      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]  
     }
-  }
 
-app_settings = {
-  "FUNCTIONS_WORKER_RUNTIME" = "python"
-  "WEBSITE_RUN_FROM_PACKAGE" = "1"
+    # HTTP 2.0 (Optional)
+    http2_enabled = true
   }
-}
-
-data "azurerm_function_app_host_keys" "demo" {
-  name                = azurerm_linux_function_app.demo.name
-  resource_group_name = azurerm_linux_function_app.demo.resource_group_name
 }
 
 resource "local_file" "azure_function" {
@@ -152,26 +154,31 @@ resource "azurerm_storage_blob" "storage_blob_function" {
   name                   = "function.zip" # name of the blob in the contianer
   source                 = "./function.zip" # path to the zip file
   content_md5            = filemd5("./function.zip") # check if the zip file has changed
-  storage_account_name   = "tlcdemostorageaccount"
-  storage_container_name = "function-code"
+  storage_account_name   = "${var.storage_account}"
+  storage_container_name = "${var.storage_container}"
   type                   = "Block"
+  depends_on = [
+    azurerm_storage_account.demo,
+    local_file.azure_function,
+    data.archive_file.function_zip
+  ]
 }
 
 # Register the webhook in GitHub
 resource "github_repository_webhook" "tf_webhook" {
+  #repository = "${var.repo_name}"
   repository = "tf-azure"
   configuration {
-    url          = "https://${azurerm_linux_function_app.demo.default_hostname}/api/my-trigger?code=${data.azurerm_function_app_host_keys.demo.default_function_key}"
+    url         = "https://tlc-function-app.azurewebsites.net/webhook"
     content_type = "json"
-    insecure_ssl = false # Set to true if not using HTTPS (not recommended)
-    # The secret should be stored securely in a secret manager and passed here
+    # The secret is stored securely in vault and passed here
     secret       = data.azurerm_key_vault_secret.webhook.value
+    insecure_ssl = false
   }
   active = true
   events = ["push"] # Choose the events you need
-}
-
-output "full_authenticated_url" {
-  value = "https://${azurerm_linux_function_app.demo.default_hostname}/api/my-trigger?code=${data.azurerm_function_app_host_keys.demo.default_function_key}"
-  sensitive = true
+  
+  depends_on = [
+    github_actions_secret.webhook_secret
+  ]
 }

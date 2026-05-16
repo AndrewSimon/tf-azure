@@ -53,6 +53,22 @@ resource "azurerm_key_vault_secret" "adminpass" {
   }
 }
 
+# Github (PAT) token
+resource "azurerm_key_vault_secret" "token" {
+  name         = "github-token"
+  value        = var.token
+  key_vault_id = azurerm_key_vault.vault.id
+  depends_on = [
+    azurerm_key_vault.vault
+  ]
+  lifecycle {
+    ignore_changes = [
+      ## To change GH PAT, run terraform destroy azurerm_key_vault_secret.token first
+      value
+    ]
+  }
+}
+
 # Webhook secret needed to create a github actions wehbook
 resource "azurerm_key_vault_secret" "webhook" {
   name         = "webhook-secret"
@@ -84,4 +100,9 @@ data "azurerm_key_vault_secret" "webhook" {
   name = "webhook-secret"
   key_vault_id = data.azurerm_key_vault.vault.id
   depends_on = [ azurerm_key_vault_secret.webhook ]
+}
+data "azurerm_key_vault_secret" "token" {
+  name = "webhook-secret"
+  key_vault_id = data.azurerm_key_vault.vault.id
+  depends_on = [ azurerm_key_vault_secret.token ]
 }

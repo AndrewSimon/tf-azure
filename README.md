@@ -43,18 +43,26 @@ This plan will:
 ## Log into Azure via AzureCli
 > az login
 
+## Pip installs on Windows, upgrade pip3 and install modules
+1. python3.9.exe -m pip install --upgrade pip
+2. pip3 install azure-identity
+
 ## Terraform Usage example
 
 1. terraform init  #Perform only once, after first git clone
 2. terraform plan  #Plan does not require a password
-3. terraform apply -var="adminpass=my_strong_pass" #First time apply must include a password 
-4. terraform apply #Subsequent values of var ignored until deleted first
-6. terraform destroy -target azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
-7. terraform destroy #deletes ALL of the resources created by this plan.  
+3. terraform apply -var="token=my_gh_pat" -var="adminpass=my_strong_pass" #First time apply must include a github token and (SQL) admin password 
+4. terraform apply #Subsequent values of password var ignored until deleted first
+5. terraform destroy -target=azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
+6. terraform destroy #deletes ALL of the remaining resources created by this plan.  
 
-Note: due to Azure vault design, destroying vault purges secrets, which awaits a timeout, CTL+C to exit :)  The terraform backend storage account you created by hand will not be destroyed.
+Note: due to Azure vault design, destroying vault purges secrets, which awaits a 10 minute timeout. It will complete normally but if you do not want to wait, CTL+C to exit, then, re-run terraform destroy to remove remaining resources. The terraform backend storage account you created by hand will not be destroyed.
 --> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
 
+## Trouble-shooting
+
+<i>Error: Error in function call
+   on azure_function.tf, Call to function "filemd5" failed: function returned an inconsistent result</i>: Re-run 'terraform apply' as the md5 will now match the function.py file.  If 'file not found' instead of 'insconsistent result', run 'touch function.py' then re-run 'terraform apply'.
 
 ## Meta
 
