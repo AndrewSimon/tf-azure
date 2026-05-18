@@ -18,6 +18,34 @@ This plan will:
 1. AzureCli
 2. Git client
 3. Terraform
+4. Azure Functions Core Tools
+
+## Git Client Install on your local device:
+```
+https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
+```
+
+## tf-azure Install Instructions
+1. Change directory to the location you want your terraform plan to be, usually your home directory     
+2. Using the git command-line, clone and checkout the 'dynamic-ghr' branch, which is newest:
+
+```
+git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
+```
+
+## Install Azure Function Core Tools 
+> https://learn.microsoft.com/en-us/azure/azure-functions/how-to-create-function-azure-cli
+ 
+## Create/Configure the Python Function for Dynamic GHR 
+ 
+ 1. cd tf-azure
+ 2. func init --python tlc-function-app
+ 3. func new --name function-code --template "HTTP trigger" --authlevel anonymous
+
+### tf-azure Configuration Instructions:
+
+1. cd tf-files
+2. 
 
 ## Create Azure storage for Terraform backend via Portal UI
 >Create a resource group and storage account to be used in Terraform configuration setup below
@@ -39,7 +67,7 @@ This plan will:
 
 1. After installing above requirements, clone this repo.
 2. cd tf-azure, edit main.tf --> change 'storage_account_name = "your_unique_storage_account_name"
-
+  
 ## Log into Azure via AzureCli
 > az login
 
@@ -60,8 +88,10 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 
 ## Trouble-shooting
 
-<i>Error: Error in function call
-   on azure_function.tf, Call to function "filemd5" failed: function returned an inconsistent result</i>: Re-run 'terraform apply' as the md5 will now match the function.py file.  If 'file not found' instead of 'insconsistent result', run 'touch function.py' then re-run 'terraform apply'.
+<i>Error in function call on azure_function.tf, Call to function "filemd5" failed: <B>function returned an inconsistent result</B></i>:
+    
+   1. If 'no file exists at ./function_app.py' or 'fiile not found', instead of 'insconsistent result', run 'touch function_app.py' then re-run 'terraform apply/destroy'.
+   2. Re-run 'terraform apply' as the md5 will now match the function_app.py file. 
 
 ## Meta
 

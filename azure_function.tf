@@ -1,139 +1,161 @@
-data "azurerm_client_config" "current" {}
-
-output "subscription_id" {
-  value = data.azurerm_client_config.current.subscription_id
-}
 # App Service Plan
 resource "azurerm_service_plan" "demo" {
 name = "demo-plan"
 location = azurerm_resource_group.demo.location
 resource_group_name = azurerm_resource_group.demo.name
+
 os_type = "Linux"
 	sku_name = "FC1" # Consumption plan
 }
 
+#resource "azurerm_role_assignment" "kudu_role" {
+#  scope                = azurerm_function_app_flex_consumption.demo.id
+#  role_definition_name = "Website Contributor"
+#  principal_id         = data.azurerm_client_config.current.object_id
+#}
+
+# Generate SAS token for function code blob authorization
+data "azurerm_storage_account_blob_container_sas" "sas" {
+  connection_string = azurerm_storage_account.demo.primary_connection_string
+  container_name    = azurerm_storage_container.function_code_container.name
+  https_only        = true
+  expiry            = timeadd(time_static.sas.rfc3339, "8760h")
+  start             = time_static.sas.rfc3339
+  permissions {
+    read   = true
+    add    = true
+    create = false
+    write  = false
+    delete = true
+    list   = true
+  }
+
+  cache_control       = "max-age=5"
+  content_disposition = "inline"
+  content_encoding    = "deflate"
+  content_language    = "en-US"
+  content_type        = "application/json"
+}
+
 # Linux Function App (best for Python) - name must be unique!
 resource "azurerm_function_app_flex_consumption" "demo" {
-  name                       = "tlc-function-app"
-  resource_group_name        = azurerm_resource_group.demo.name
-  location                   = azurerm_resource_group.demo.location
-  service_plan_id            = azurerm_service_plan.demo.id
-  storage_container_endpoint = "https://tlcdemostorageaccount.blob.core.windows.net/function-code"
-  storage_container_type     = "blobContainer"
+  name                        = "tlc-function-app"
+  resource_group_name         = azurerm_resource_group.demo.name
+  location                    = azurerm_resource_group.demo.location
+  service_plan_id             = azurerm_service_plan.demo.id
+  storage_container_endpoint  = "https://${var.storage_account}.blob.core.windows.net/${var.storage_container}"#  storage_container_type     = "blobContainer"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.demo.primary_access_key
+  storage_container_type      = "blobContainer"
   # Critical Flex Consumption Settings
   maximum_instance_count = 3
   instance_memory_in_mb  = 2048
+
+  # The function.zip created later is deployed here 
+#  zip_deploy_file = "${path.module}/function.zip"
   
   # Runtime specific configuration
   runtime_name        = "python"
   runtime_version     = "3.12"
 
+#Necessary because the function upload and create can take a very long time
+#  timeouts {
+#    create = "90m"
+#    update = "90m"
+#    delete = "90m"
+#  }
+
+ # app_settings = {
+    # Required for remote builds (Python/Node) -> conficts with WEBSITE_RUN_FROM_PACKAGE = 1
+#    "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
+#    "ENABLE_ORYX_BUILD"              = "true"
+#    "DEPLOYMENT_SOURCE_HASH" = filebase64sha256(data.archive_file.function_zip.output_path)
+    # Standard setting for zip deployment - Consumption plan only accepts URL
+    #"WEBSITE_RUN_FROM_PACKAGE" = "1"
+#    "WEBSITE_RUN_FROM_PACKAGE" = "${azurerm_storage_blob.storage_blob_function.url}${data.azurerm_storage_account_blob_container_sas.sas.sas}"
+#  }
+
   site_config {
     # CORS (Optional - example)
-    cors {
-      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]  
-    }
+#    cors {
+#      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]  
+#    }
 
     # HTTP 2.0 (Optional)
     http2_enabled = true
   }
 }
 
+resource "terraform_data" "upload_function" {
+  triggers_replace = {
+    file_content_hash = filemd5("${path.module}/function.zip")
+  }
+  provisioner "local-exec" {
+    # Use bash to run the command and stream last line every second
+    command = <<EOT
+      set -euo pipefail
+
+      # Temporary file for capturing output
+      TMPFILE=/tmp/func.out
+
+      # Run the long-running command in the background, redirecting stdout to file
+      ( func azure functionapp publish tlc-function-app > "$TMPFILE" 2>&1 ) &
+      CMD_PID=$!
+
+      # While the process is running, print the last line every second
+      while kill -0 "$CMD_PID" 2>/dev/null; do
+        tail -n 1 "$TMPFILE"
+        sleep 10
+      done
+
+      # Print any remaining output after completion
+      tail -n 1 "$TMPFILE"
+
+      # Clean up
+      rm -f "$TMPFILE"
+    EOT
+
+    interpreter = ["${var.bashpath}", "-c"]
+  }
+}
+
+#resource "terraform_data" "bootstrap" {
+##  triggers_replace = [azurerm_function_app_flex_consumption.demo]
+#  provisioner "local-exec" {
+#    command = ""
+#  }
+#}
+
+
 resource "local_file" "azure_function" {
-  filename = "function.py"
+  filename = "function_app.py"
   content  = <<-EOT
+# This is a generated script by Terraform azure_function.tf
 
-# This is a generated script by Terraform lambda_handler.tf
-
-import sys
 import logging
-import urllib3
-import hmac
-import hashlib
-import json
-import secrets
-from hmac import compare_digest
-from azure.identity import DefaultAzureCredential
-from azure.mgmt.compute import ComputeManagementClient
-from azure.mgmt.network import NetworkManagementClient
-from azure.mgmt.resource import ResourceManagementClient
+import azure.functions as func
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
+@app.route(route="function_code", auth_level=func.AuthLevel.ANONYMOUS)
+def function_code(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
 
-# Configure logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+    name = req.params.get('name')
+    if not name:
+        try:
+            req_body = req.get_json()
+        except ValueError:
+            pass
+        else:
+            name = req_body.get('name')
 
-SUBSCRIPTION_ID = '{data.azurerm_client_config.current.subscription_id}'
-# These are currently defined in main.tf, they are not variables, yet
-GROUP_NAME = "DemoResourceGroup"
-VM_NAME = "Dynamic GHR VM1"
-NETWORK_NAME = "demo"
-SUBNET_NAME = "Public"
-INTERFACE_NAME = "TLC_Primary_Interface"
-
-# Create clients
-resource_client = ResourceManagementClient(credential=DefaultAzureCredential(), subscription_id=SUBSCRIPTION_ID)
-network_client = NetworkManagementClient(credential=DefaultAzureCredential(), subscription_id=SUBSCRIPTION_ID)
-compute_client = ComputeManagementClient(credential=DefaultAzureCredential(), subscription_id=SUBSCRIPTION_ID)
-
-# Create resource group
-resource_client.resource_groups.create_or_update(
-    GROUP_NAME,
-    {"location": "eastus"}
-)
-
-# Create virtual network and subnet
-network_client.virtual_networks.begin_create_or_update(
-    GROUP_NAME,
-    NETWORK_NAME,
-    {"location": "eastus", "address_space": {"address_prefixes": ["10.0.0.0/16"]}}
-).result()
-
-network_client.subnets.begin_create_or_update(
-    GROUP_NAME,
-    NETWORK_NAME,
-    SUBNET_NAME,
-    {"address_prefix": "10.0.0.0/24"}
-).result()
-
-# Create network interface
-network_client.network_interfaces.begin_create_or_update(
-    GROUP_NAME,
-    INTERFACE_NAME,
-    {"ip_configurations": [{"name": "ipconfig1", "subnet": {"id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/{NETWORK_NAME}/subnets/{SUBNET_NAME}"}]}
-).result()
-
-# Create VM
-compute_client.virtual_machines.begin_create_or_update(
-    GROUP_NAME,
-    VM_NAME,
-    {
-        "location": "eastus",
-        "properties": {
-            "hardwareProfile": {"vmSize": "Standard_B1s"},
-            "storageProfile": {
-                "imageReference": {
-                    "publisher": "MicrosoftWindowsServer",
-                    "offer": "WindowsServer",
-                    "sku": "2022-Datacenter",
-                    "version": "latest"
-                },
-                "osDisk": {
-                    "name": f"{VM_NAME}-osdisk",
-                    "caching": "ReadWrite",
-                    "createOption": "FromImage"
-                }
-            },
-            "networkProfile": {
-                "networkInterfaces": [{
-                    "id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{GROUP_NAME}/providers/Microsoft.Network/networkInterfaces/{INTERFACE_NAME}"
-                }]
-            }
-        }
-    }
-).result()
+    if name:
+        return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
+    else:
+        return func.HttpResponse(
+             "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
+             status_code=200
+        )
 
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
@@ -142,7 +164,19 @@ compute_client.virtual_machines.begin_create_or_update(
 # Data source to create the deployment package (ZIP file)
 data "archive_file" "function_zip" {
   type        = "zip"
-  source_file = "function.py"
+# List files individually
+  source {
+    content  = file("${path.module}/host.json")
+    filename = "host.json"
+  }
+  source {
+    content  = file("${path.module}/function_app.py")
+    filename = "function_app.py"
+  }
+  source {
+    content  = file("${path.module}/requirements.txt")
+    filename = "requirements.txt"
+  }
   output_path = "function.zip"
   depends_on = [
     local_file.azure_function
@@ -182,3 +216,16 @@ resource "github_repository_webhook" "tf_webhook" {
     github_actions_secret.webhook_secret
   ]
 }
+
+# 2. Look up the existing App Service (the scope)
+#data "azurerm_linux_web_app" "example" {
+#  name                = "my-web-app"
+#  resource_group_name = "my-resource-group"
+#}
+
+# 3. Create the role assignment
+#resource "azurerm_role_assignment" "kudu_access" {
+#  scope                = data.azurerm_linux_web_app.example.id
+#  role_definition_name = "Website Contributor"
+#  principal_id         = data.azuread_user.example.object_id
+#}

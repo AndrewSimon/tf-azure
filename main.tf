@@ -33,6 +33,20 @@ provider "github" {
   owner = "${local.owner}"  # The target GitHub organization or user account [7]
   token = "${var.token}"
 }
+# Get user and subscription information
+data "azurerm_client_config" "current" {}
+
+data "azuread_client_config" "current" {}
+
+data "azuread_user" "current_user" {
+  object_id = data.azuread_client_config.current.object_id
+}
+
+resource "time_static" "sas" {}
+
+output "subscription_id" {
+  value = data.azurerm_client_config.current.subscription_id
+}
 
 # Resources: RG, VNet, Subnet, PIP, NSG, NIC, VM
 resource "azurerm_resource_group" "demo" {
@@ -199,4 +213,7 @@ resource "github_actions_secret" "webhook_secret" {
 
 output "public_ip_address" {
   value = azurerm_public_ip.demo_ip.ip_address
+}
+output "current_user_principal_name" {
+  value = data.azuread_user.current_user.user_principal_name
 }

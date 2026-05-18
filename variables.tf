@@ -39,7 +39,12 @@ description = "Demo function storage accounts gets destroyed, thus terreform sta
   default     = "tlcdemostorageaccount"
 }
 variable "storage_container" {
-description = "Demo function's storage container name - kind of like filename"
+description = "Function itself can be the same as the storage container that contains it"
   type        = string
   default     = "function-code"
+}
+variable "bashpath" {
+description = "This necessary to run bash in Windows, eg Cygwin or equivalent"
+  type      = string
+  default   = "bash"
 }

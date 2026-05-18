@@ -102,7 +102,7 @@ data "azurerm_key_vault_secret" "webhook" {
   depends_on = [ azurerm_key_vault_secret.webhook ]
 }
 data "azurerm_key_vault_secret" "token" {
-  name = "webhook-secret"
+  name = "github-token"
   key_vault_id = data.azurerm_key_vault.vault.id
   depends_on = [ azurerm_key_vault_secret.token ]
 }
