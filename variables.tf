@@ -39,12 +39,17 @@ description = "Demo function storage accounts gets destroyed, thus terreform sta
   default     = "tlcdemostorageaccount"
 }
 variable "storage_container" {
-description = "Function itself can be the same as the storage container that contains it"
+description = "storage container that contains function code"
   type        = string
   default     = "function-code"
 }
+variable "function_code" {
+description = "Name of the python function (code), not the app that runs it"
+  type        = string
+  default     = "function_code"
+}
 variable "bashpath" {
-description = "This necessary to run bash in Windows, eg Cygwin or equivalent"
+description = "This necessary to run bash in Windows (i.e. /bin dirname is problematic)"
   type      = string
   default   = "bash"
 }

@@ -8,11 +8,11 @@ os_type = "Linux"
 	sku_name = "FC1" # Consumption plan
 }
 
-#resource "azurerm_role_assignment" "kudu_role" {
-#  scope                = azurerm_function_app_flex_consumption.demo.id
-#  role_definition_name = "Website Contributor"
-#  principal_id         = data.azurerm_client_config.current.object_id
-#}
+resource "azurerm_role_assignment" "kudu_role" {
+  scope                = azurerm_function_app_flex_consumption.demo.id
+  role_definition_name = "Website Contributor"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
 
 # Generate SAS token for function code blob authorization
 data "azurerm_storage_account_blob_container_sas" "sas" {
@@ -88,14 +88,12 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 
 resource "terraform_data" "upload_function" {
   triggers_replace = {
-    file_content_hash = filemd5("${path.module}/function.zip")
+    file_content_hash = filemd5("${path.module}/function_app.py")
   }
   provisioner "local-exec" {
     # Use bash to run the command and stream last line every second
     command = <<EOT
       set -euo pipefail
-
-      # Temporary file for capturing output
       TMPFILE=/tmp/func.out
 
       # Run the long-running command in the background, redirecting stdout to file
@@ -107,11 +105,9 @@ resource "terraform_data" "upload_function" {
         tail -n 1 "$TMPFILE"
         sleep 10
       done
-
-      # Print any remaining output after completion
+      
       tail -n 1 "$TMPFILE"
 
-      # Clean up
       rm -f "$TMPFILE"
     EOT
 
@@ -132,12 +128,18 @@ resource "local_file" "azure_function" {
   content  = <<-EOT
 # This is a generated script by Terraform azure_function.tf
 
+import time
 import logging
 import azure.functions as func
+
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
-@app.route(route="function_code", auth_level=func.AuthLevel.ANONYMOUS)
-def function_code(req: func.HttpRequest) -> func.HttpResponse:
+# Forces regeneration of the file
+ts = time.time()
+
+@app.route(route="${var.function_code}", auth_level=func.AuthLevel.ANONYMOUS)
+
+def ${var.function_code}(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
     name = req.params.get('name')
@@ -162,48 +164,48 @@ def function_code(req: func.HttpRequest) -> func.HttpResponse:
 }
 
 # Data source to create the deployment package (ZIP file)
-data "archive_file" "function_zip" {
-  type        = "zip"
+#data "archive_file" "function_zip" {
+#  type        = "zip"
 # List files individually
-  source {
-    content  = file("${path.module}/host.json")
-    filename = "host.json"
-  }
-  source {
-    content  = file("${path.module}/function_app.py")
-    filename = "function_app.py"
-  }
-  source {
-    content  = file("${path.module}/requirements.txt")
-    filename = "requirements.txt"
-  }
-  output_path = "function.zip"
-  depends_on = [
-    local_file.azure_function
-  ]
-}
+#  source {
+#    content  = file("${path.module}/host.json")
+#    filename = "host.json"
+#  }
+#  source {
+#    content  = file("${path.module}/function_app.py")
+#    filename = "function_app.py"
+#  }
+#  source {
+#    content  = file("${path.module}/requirements.txt")
+#    filename = "requirements.txt"
+#  }
+#  output_path = "function.zip"
+#  depends_on = [
+#    local_file.azure_function
+#  ]
+#}
 
 # upload the zipped file to the container
-resource "azurerm_storage_blob" "storage_blob_function" {
-  name                   = "function.zip" # name of the blob in the contianer
-  source                 = "./function.zip" # path to the zip file
-  content_md5            = filemd5("./function.zip") # check if the zip file has changed
-  storage_account_name   = "${var.storage_account}"
-  storage_container_name = "${var.storage_container}"
-  type                   = "Block"
-  depends_on = [
-    azurerm_storage_account.demo,
-    local_file.azure_function,
-    data.archive_file.function_zip
-  ]
-}
+#resource "azurerm_storage_blob" "storage_blob_function" {
+#  name                   = "function.zip" # name of the blob in the contianer
+#  source                 = "./function.zip" # path to the zip file
+#  content_md5            = filemd5("./function.zip") # check if the zip file has changed
+#  storage_account_name   = "${var.storage_account}"
+#  storage_container_name = "${var.storage_container}"
+#  type                   = "Block"
+#  depends_on = [
+#    azurerm_storage_account.demo,
+#    local_file.azure_function,
+#    data.archive_file.function_zip
+#  ]
+#}
 
 # Register the webhook in GitHub
 resource "github_repository_webhook" "tf_webhook" {
   #repository = "${var.repo_name}"
   repository = "tf-azure"
   configuration {
-    url         = "https://tlc-function-app.azurewebsites.net/webhook"
+    url         = "https://tlc-function-app.azurewebsites.net/api/${var.function_code}"
     content_type = "json"
     # The secret is stored securely in vault and passed here
     secret       = data.azurerm_key_vault_secret.webhook.value
