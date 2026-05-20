@@ -46,7 +46,7 @@ description = "storage container that contains function code"
 variable "function_code" {
 description = "Name of the python function (code), not the app that runs it"
   type        = string
-  default     = "function_code"
+  default     = "launch_vm"
 }
 variable "bashpath" {
 description = "This necessary to run bash in Windows (i.e. /bin dirname is problematic)"

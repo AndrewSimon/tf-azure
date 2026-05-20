@@ -77,6 +77,7 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 ## Terraform Usage example
 
 1. terraform init  #Perform only once, after first git clone
+2. touch function_app.py # Necessary for filemd5 to work 
 2. terraform plan  #Plan does not require a password
 3. terraform apply -var="token=my_gh_pat" -var="adminpass=my_strong_pass" #First time apply must include a github token and (SQL) admin password 
 4. terraform apply #Subsequent values of password var ignored until deleted first

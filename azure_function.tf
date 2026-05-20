@@ -97,7 +97,7 @@ resource "terraform_data" "upload_function" {
       TMPFILE=/tmp/func.out
 
       # Run the long-running command in the background, redirecting stdout to file
-      ( func azure functionapp publish tlc-function-app > "$TMPFILE" 2>&1 ) &
+      ( func azure functionapp publish tlc-function-app --python > "$TMPFILE" 2>&1 ) &
       CMD_PID=$!
 
       # While the process is running, print the last line every second
@@ -128,36 +128,50 @@ resource "local_file" "azure_function" {
   content  = <<-EOT
 # This is a generated script by Terraform azure_function.tf
 
-import time
+import jwt
 import logging
+import os
+import time
 import azure.functions as func
-
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.compute import ComputeManagementClient
 
 # Forces regeneration of the file
 ts = time.time()
 
+# Make all variables global so they are accessible within various definitions
+global SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME, JWT_SECRET 
+SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
+RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
+VM_NAME = "Github-runner-1"
+JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
+
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 @app.route(route="${var.function_code}", auth_level=func.AuthLevel.ANONYMOUS)
-
 def ${var.function_code}(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a request.')
+    # 1. JWT Validation
+    auth_header = req.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return func.HttpResponse("Unauthorized", status_code=401)
+    
+    token = auth_header.split(" ")[1]
+    try:
+        # Verify the JWT (adjust algorithms based on your GitHub App config)
+        jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except Exception as e:
+        return func.HttpResponse(f"Invalid Token: {str(e)}", status_code=403)
 
-    name = req.params.get('name')
-    if not name:
-        try:
-            req_body = req.get_json()
-        except ValueError:
-            pass
-        else:
-            name = req_body.get('name')
-
-    if name:
-        return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
-    else:
-        return func.HttpResponse(
-             "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
-             status_code=200
-        )
+    # 2. Start the Virtual Machine
+    try:
+        credential = DefaultAzureCredential()
+        compute_client = ComputeManagementClient(credential, SUBSCRIPTION_ID)
+        
+        async_vm_start = compute_client.virtual_machines.begin_start(RESOURCE_GROUP, VM_NAME)
+        async_vm_start.wait() # Optional: wait for completion
+        
+        return func.HttpResponse(f"VM {VM_NAME} started successfully.", status_code=200)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {str(e)}", status_code=500)
 
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
@@ -218,16 +232,3 @@ resource "github_repository_webhook" "tf_webhook" {
     github_actions_secret.webhook_secret
   ]
 }
-
-# 2. Look up the existing App Service (the scope)
-#data "azurerm_linux_web_app" "example" {
-#  name                = "my-web-app"
-#  resource_group_name = "my-resource-group"
-#}
-
-# 3. Create the role assignment
-#resource "azurerm_role_assignment" "kudu_access" {
-#  scope                = data.azurerm_linux_web_app.example.id
-#  role_definition_name = "Website Contributor"
-#  principal_id         = data.azuread_user.example.object_id
-#}

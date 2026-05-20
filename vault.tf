@@ -2,6 +2,13 @@ locals {
   current_user_id = coalesce(var.msi_id, data.azurerm_client_config.current.object_id)
 }
 
+# Generate random password (.result, not .value)
+resource "random_password" "webhook" {
+length = 16
+special = true
+override_special = "_%@"
+}
+
 resource "azurerm_key_vault" "vault" {
   name                       = "TLC-KeyVault"
   location            = azurerm_resource_group.demo.location
@@ -72,10 +79,11 @@ resource "azurerm_key_vault_secret" "token" {
 # Webhook secret needed to create a github actions wehbook
 resource "azurerm_key_vault_secret" "webhook" {
   name         = "webhook-secret"
-  value        = var.webhook
+  value        = random_password.webhook.result 
   key_vault_id = azurerm_key_vault.vault.id
   depends_on = [
-    azurerm_key_vault.vault
+    azurerm_key_vault.vault,
+    random_password.webhook 
   ]
   lifecycle {
     ignore_changes = [
