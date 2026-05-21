@@ -56,7 +56,7 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   
   # Runtime specific configuration
   runtime_name        = "python"
-  runtime_version     = "3.12"
+  runtime_version     = "3.13"
 
 #Necessary because the function upload and create can take a very long time
 #  timeouts {
@@ -95,7 +95,7 @@ resource "terraform_data" "upload_function" {
     command = <<EOT
       set -euo pipefail
       TMPFILE=/tmp/func.out
-
+      
       # Run the long-running command in the background, redirecting stdout to file
       ( func azure functionapp publish tlc-function-app --python > "$TMPFILE" 2>&1 ) &
       CMD_PID=$!

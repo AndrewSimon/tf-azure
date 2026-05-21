@@ -18,7 +18,8 @@ This plan will:
 1. AzureCli
 2. Git client
 3. Terraform
-4. Azure Functions Core Tools
+4. Python
+5. Azure Functions Core Tools
 
 ## Git Client Install on your local device:
 ```
@@ -35,17 +36,17 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 
 ## Install Azure Function Core Tools 
 > https://learn.microsoft.com/en-us/azure/azure-functions/how-to-create-function-azure-cli
+
+## Install Python
+>https://www.python.org/downloads/
  
-## Create/Configure the Python Function for Dynamic GHR 
+## Create/Configure the Python Virtual Environment for Azure Functions 
  
  1. cd tf-azure
- 2. func init --python tlc-function-app
- 3. func new --name function-code --template "HTTP trigger" --authlevel anonymous
-
-### tf-azure Configuration Instructions:
-
-1. cd tf-files
-2. 
+ 2. py -m venv .venv (Windows) or python -m venv .venv (Linux)
+ MAY NOT BE NECESSARY 3 and 4
+ 3. func init --python tlc-function-app
+ 4. func new --name function-code --template "HTTP trigger" --authlevel anonymous
 
 ## Create Azure storage for Terraform backend via Portal UI
 >Create a resource group and storage account to be used in Terraform configuration setup below
@@ -67,7 +68,8 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 
 1. After installing above requirements, clone this repo.
 2. cd tf-azure, edit main.tf --> change 'storage_account_name = "your_unique_storage_account_name"
-  
+3. Edit variables.tf --> change values to match your conventions and environment 
+
 ## Log into Azure via AzureCli
 > az login
 
@@ -81,8 +83,9 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 2. terraform plan  #Plan does not require a password
 3. terraform apply -var="token=my_gh_pat" -var="adminpass=my_strong_pass" #First time apply must include a github token and (SQL) admin password 
 4. terraform apply #Subsequent values of password var ignored until deleted first
-5. terraform destroy -target=azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
-6. terraform destroy #deletes ALL of the remaining resources created by this plan.  
+5. terraform destroy -target=terraform_data.upload_function #Do this before loading python function updates
+6. terraform destroy -target=azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
+7. terraform destroy #deletes ALL of the remaining resources created by this plan.  
 
 Note: due to Azure vault design, destroying vault purges secrets, which awaits a 10 minute timeout. It will complete normally but if you do not want to wait, CTL+C to exit, then, re-run terraform destroy to remove remaining resources. The terraform backend storage account you created by hand will not be destroyed.
 --> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
