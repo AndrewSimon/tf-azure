@@ -1,5 +1,8 @@
-PyJWT
-logging
 azure-functions
 azure-mgmt-compute
 azure-identity
+PyJWT
+logging
+urllib3
+
+

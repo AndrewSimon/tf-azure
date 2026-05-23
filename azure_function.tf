@@ -128,6 +128,11 @@ resource "local_file" "azure_function" {
   content  = <<-EOT
 # This is a generated script by Terraform azure_function.tf
 
+import urllib3
+import hmac
+import hashlib
+import json
+import secrets
 import jwt
 import logging
 import os
@@ -148,11 +153,29 @@ JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 @app.route(route="${var.function_code}", auth_level=func.AuthLevel.ANONYMOUS)
+
+def validate_signature(github_signature, payload_body, secret_token):
+    """
+    Validates the GitHub webhook signature.
+    """
+    if not github_signature.startswith("sha256="):
+        return False
+    expected_signature = github_signature.split("=")[1]
+
+    # print("GHWHS:" + secret_token) 
+    # Calculate the HMAC-SHA256 hash of the payload body
+    h = hmac.new(secret_token.encode('utf-8'), payload_body, hashlib.sha256)    
+    calculated_signature = h.hexdigest()
+    print("expected:" + expected_signature)
+    print("calculated:" + calculated_signature)    
+    # Compare signatures using a timing-safe method
+    return compare_digest(calculated_signature, expected_signature)
+
 def ${var.function_code}(req: func.HttpRequest) -> func.HttpResponse:
     # 1. JWT Validation
     auth_header = req.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return func.HttpResponse("Unauthorized", status_code=401)
+#    if not auth_header or not auth_header.startswith('Bearer '):
+#       return func.HttpResponse("Unauthorized", status_code=401)
     
     token = auth_header.split(" ")[1]
     try:
