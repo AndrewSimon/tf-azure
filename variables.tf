@@ -43,13 +43,23 @@ description = "storage container that contains function code"
   type        = string
   default     = "function-code"
 }
+variable "location" {
+description = "Location of the VM we will deploy dynamically"
+  type        = string
+  default     = "eastus"
+}
+variable "vm_size" {
+description = "Size of the VM we will deploy dynamically"
+  type        = string
+  default     = "Standard_D2s_v3"
+}
 variable "function_code" {
 description = "Name of the python function (code), not the app that runs it"
   type        = string
   default     = "launch_vm"
 }
 variable "bashpath" {
-description = "This necessary to run bash in Windows (i.e. /bin dirname is problematic)"
+description = "This is necessary to run bash in Windows (i.e. /bin dirname is problematic)"
   type      = string
   default   = "bash"
 }

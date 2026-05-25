@@ -133,6 +133,7 @@ import hmac
 import hashlib
 import json
 import secrets
+import functools
 import jwt
 import logging
 import os
@@ -150,51 +151,76 @@ SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
 VM_NAME = "Github-runner-1"
 JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
+LOCATION = "${var.location}"
+VM_SIZE = "${var.vm_size}"
+ADMIN_PASS = "${var.adminpass}"
+
+def verify_signature(body: bytes, header_signature: str) -> bool:
+    secret = JWT_SECRET
+    if not secret or not header_signature:
+        return False
+    
+    # Compute the expected hash
+    hash_object = hmac.new(secret.encode('utf-8'), msg=body, digestmod=hashlib.sha256)
+    expected_signature = "sha256=" + hash_object.hexdigest()
+    
+    # Constant-time comparison to prevent timing attacks
+    return hmac.compare_digest(expected_signature, header_signature)
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
-@app.route(route="${var.function_code}", auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="launch_vm", auth_level=func.AuthLevel.ANONYMOUS)
 
-def validate_signature(github_signature, payload_body, secret_token):
+def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     """
-    Validates the GitHub webhook signature.
+        Validates the GH webhook secret via it's signature before anything else
     """
-    if not github_signature.startswith("sha256="):
-        return False
-    expected_signature = github_signature.split("=")[1]
-
-    # print("GHWHS:" + secret_token) 
-    # Calculate the HMAC-SHA256 hash of the payload body
-    h = hmac.new(secret_token.encode('utf-8'), payload_body, hashlib.sha256)    
-    calculated_signature = h.hexdigest()
-    print("expected:" + expected_signature)
-    print("calculated:" + calculated_signature)    
-    # Compare signatures using a timing-safe method
-    return compare_digest(calculated_signature, expected_signature)
-
-def ${var.function_code}(req: func.HttpRequest) -> func.HttpResponse:
-    # 1. JWT Validation
-    auth_header = req.headers.get('Authorization')
-#    if not auth_header or not auth_header.startswith('Bearer '):
-#       return func.HttpResponse("Unauthorized", status_code=401)
     
-    token = auth_header.split(" ")[1]
-    try:
-        # Verify the JWT (adjust algorithms based on your GitHub App config)
-        jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-    except Exception as e:
-        return func.HttpResponse(f"Invalid Token: {str(e)}", status_code=403)
+    body = req.get_body()
+    signature = req.headers.get("X-Hub-Signature-256")
 
-    # 2. Start the Virtual Machine
-    try:
-        credential = DefaultAzureCredential()
-        compute_client = ComputeManagementClient(credential, SUBSCRIPTION_ID)
-        
-        async_vm_start = compute_client.virtual_machines.begin_start(RESOURCE_GROUP, VM_NAME)
-        async_vm_start.wait() # Optional: wait for completion
-        
-        return func.HttpResponse(f"VM {VM_NAME} started successfully.", status_code=200)
-    except Exception as e:
-        return func.HttpResponse(f"Error: {str(e)}", status_code=500)
+    if not verify_signature(body, signature):
+      logging.warning("Invalid signature. Unauthorized, access denied, return code 401.")
+      return func.HttpResponse("Unauthorized", status_code=401)
+
+    """
+        If we are here, the sha256 hash signature is good!
+    """
+    
+    # Use DefaultAzureCredential to authenticate via Managed Identity
+    credential = DefaultAzureCredential()
+    
+    # Initialize clients
+    compute_client = ComputeManagementClient(credential, SUBSCRIPTION_ID)
+    # Logic to provision VNet, Subnet, and NIC would go here...
+
+    # Create the VM
+    vm_parameters = {
+        "location": LOCATION,
+        "properties": {
+        "storageProfile": {
+            "imageReference": {
+                "publisher": "Canonical",
+                "offer": "0001-com-ubuntu-server-jammy",
+                "sku": "22_04-lts-gen2",
+                "version": "latest"
+            }
+        },
+        "hardwareProfile": {"vmSize": VM_SIZE},
+        "osProfile": {
+            "computerName": VM_NAME,
+            "adminUsername": "azureuser",
+            "adminPassword": ADMIN_PASS
+        },
+        "networkProfile": {
+            "networkInterfaces": [{"id": "/subscriptions/0ad4ae54-f248-4b6a-bbc7-aba5b7fb7a01/resourceGroups/DemoResourceGroup/providers/Microsoft.Network/networkInterfaces/TLC_Primary_Interface"}]
+        }
+     }
+   }
+    
+    poller = compute_client.virtual_machines.begin_create_or_update(
+        RESOURCE_GROUP, VM_NAME, vm_parameters
+    )
+    return func.HttpResponse(f"VM creation started: {poller.status()}")
 
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions

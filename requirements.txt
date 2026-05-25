@@ -4,5 +4,6 @@ azure-identity
 PyJWT
 logging
 urllib3
+cryptography
 
 

@@ -157,6 +157,7 @@ resource "azurerm_network_interface_security_group_association" "sg_assoc" {
   network_security_group_id = azurerm_network_security_group.public.id
 }
 
+## We will launch a dynamic VM via Azure Function App similar to this static VM
 # "azurerm_linux_virtual_machine" "tlc_vm" {
 #  name                = "TLC"
 #  location            = azurerm_resource_group.demo.location

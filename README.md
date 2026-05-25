@@ -37,13 +37,18 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 ## Install Azure Function Core Tools 
 > https://learn.microsoft.com/en-us/azure/azure-functions/how-to-create-function-azure-cli
 
-## Install Python
+## Install Python and modules
 >https://www.python.org/downloads/
+
+1. py -m pip install signify # Windows example, repeat for all needed modules
+2. py -m pip install -r requirements.txt # Do this after all modules needed are installed
  
 ## Create/Configure the Python Virtual Environment for Azure Functions 
  
  1. cd tf-azure
  2. py -3.13 -m venv .venv (Windows) or python -m venv .venv (Linux) # As of writing, python3.14  remote build not supported yet
+ 3. ./.venv/Scripts/activate (e.g. windows via git bash)
+ 
 
 ## Create Azure storage for Terraform backend via Portal UI
 >Create a resource group and storage account to be used in Terraform configuration setup below
@@ -78,11 +83,12 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 1. terraform init  #Perform only once, after first git clone
 2. touch function_app.py # Necessary for filemd5 to work 
 3. export TF_VAR_token=<your_github_personal_access_token> # to skip, source from profile
-4. terraform plan 
-5. terraform apply
-6. terraform destroy -target=terraform_data.upload_function #Do this before loading python function updates
-7. terraform destroy -target=azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
-8. terraform destroy #deletes ALL of the remaining resources created by this plan.  
+4. export TF_VAR_adminpass=<your_strong_admin_password>
+5. terraform plan 
+6. terraform apply -auto-approve  ## NOTE: Run this twice if this is the first run
+7. terraform destroy -target=terraform_data.upload_function #Do this before loading python function updates
+8. terraform destroy -target=azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
+9. terraform destroy #deletes ALL of the remaining resources created by this plan.  
 
 Note: due to Azure vault design, destroying vault purges secrets, which awaits a 10 minute timeout. It will complete normally but if you do not want to wait, CTL+C to exit, then, re-run terraform destroy to remove remaining resources. The terraform backend storage account you created by hand will not be destroyed.
 --> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
@@ -91,8 +97,9 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 
 <i>Error in function call on azure_function.tf, Call to function "filemd5" failed: <B>function returned an inconsistent result</B></i>:
     
-   1. If 'no file exists at ./function_app.py' or 'fiile not found', instead of 'insconsistent result', run 'touch function_app.py' then re-run 'terraform apply/destroy'.
-   2. Re-run 'terraform apply' as the md5 will now match the function_app.py file. 
+   1. If 'no file exists at ./function_app.py' or 'fiile not found': run 'touch function_app.py' then re-run 'terraform apply/destroy'.
+   2. Function app is created but not the function: re-run terraform apply, ensure the terraform_data.upload_function runs.  The upload package is about 500Mb because dependency libraries are built and uploaded along with your function.
+   3. The upload function runs but there is still no function in the function app:  this is usually due to missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.  Also, ensure the python app itself has no obvious syntax problems, run python function_app.py on the command line and ensure it returns no errors or output.
 
 ## Meta
 
