@@ -77,9 +77,9 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 
   site_config {
     # CORS (Optional - example)
-#    cors {
-#      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]  
-#    }
+    cors {
+      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]  
+    }
 
     # HTTP 2.0 (Optional)
     http2_enabled = true
