@@ -149,6 +149,7 @@ ts = time.time()
 global SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME, JWT_SECRET 
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
+NETWORK_INTERFACE = "${azurerm_network_interface.eth0.id}"
 VM_NAME = "Github-runner-1"
 JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
 LOCATION = "${var.location}"
@@ -212,7 +213,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
             "adminPassword": ADMIN_PASS
         },
         "networkProfile": {
-            "networkInterfaces": [{"id": "/subscriptions/0ad4ae54-f248-4b6a-bbc7-aba5b7fb7a01/resourceGroups/DemoResourceGroup/providers/Microsoft.Network/networkInterfaces/TLC_Primary_Interface"}]
+            "networkInterfaces": [{"id": NETWORK_INTERFACE}]
         }
      }
    }
