@@ -80,12 +80,12 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 
 ## Terraform Usage example
 
-1. terraform init  #Perform only once, after first git clone
+1. terraform init --upgrade # Perform only once, after first git clone
 2. touch function_app.py # Necessary for filemd5 to work 
 3. export TF_VAR_token=<your_github_personal_access_token> # to skip, source from profile
-4. export TF_VAR_adminpass=<your_strong_admin_password>
+4. export TF_VAR_adminpass=<your_strong_admin_password> # or source from profile
 5. terraform plan 
-6. terraform apply -auto-approve  ## NOTE: Run this twice if this is the first run
+6. terraform apply -auto-approve  ## NOTE: Run this TWICE if this is the first run!
 7. terraform destroy -target=terraform_data.upload_function #Do this before loading python function updates
 8. terraform destroy -target=azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
 9. terraform destroy #deletes ALL of the remaining resources created by this plan.  
@@ -99,7 +99,9 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
     
    1. If 'no file exists at ./function_app.py' or 'fiile not found': run 'touch function_app.py' then re-run 'terraform apply/destroy'.
    2. Function app is created but not the function: re-run terraform apply, ensure the terraform_data.upload_function runs.  The upload package is about 500Mb because dependency libraries are built and uploaded along with your function.
-   3. The upload function runs but there is still no function in the function app:  this is usually due to missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.  Also, ensure the python app itself has no obvious syntax problems, run python function_app.py on the command line and ensure it returns no errors or output.
+   3. Upload function did not run the first time:  Re-run terraform apply
+   4. The upload function runs but there is still no function in the function app:  this is usually due to missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.  You will have syntax errors even if you did not modify the function when any variable values are empty/missing.  Ensure the python app itself has no obvious syntax problems, run python function_app.py on the command line and ensure it returns no errors or output.  If there are errors, try to determine which variable values are coming up empty and/or unset.
+   5. If you successfully installed Function App Core Tools, you will be able to run <i>func start</i> in the tf-azure directory and start a local Function App! You can post data with curl, fiddler or other client to <i>http://localhost:7071/api/launch_vm</i> and output not directed to the client will come into the screen running <i>func start</i> as standard error and standard out.  While trouble-shooting, you update the function_app.py code in an editor window, and saved code changes will automatically reload into the <i>func start</i> run, you do not need to restart it.  You can then re-run the client, hit the localhost api endpoint, and see if your code edits changed/fixed things.  Repeat as needed.  When done editing function_app.py <b>remember to update function_app.tf</b> as all of your function_app.py updates will be overwritten next time you run terraform apply.
 
 ## Meta
 

@@ -123,6 +123,7 @@ resource "terraform_data" "upload_function" {
 #}
 
 
+## The azyre function python code is inline code within terraform
 resource "local_file" "azure_function" {
   filename = "function_app.py"
   content  = <<-EOT
@@ -146,7 +147,7 @@ from azure.mgmt.compute import ComputeManagementClient
 ts = time.time()
 
 # Make all variables global so they are accessible within various definitions
-global SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME, JWT_SECRET 
+global SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME, JWT_SECRET, USERDATA
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
 NETWORK_INTERFACE = "${azurerm_network_interface.eth0.id}"
@@ -154,7 +155,73 @@ VM_NAME = "Github-runner-1"
 JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
 LOCATION = "${var.location}"
 VM_SIZE = "${var.vm_size}"
+GH_PAT = '${var.token}'
+REPO_NAME = '${var.repo_name}'
 ADMIN_PASS = "${var.adminpass}"
+MKT_OPT = "dynamic"
+REGION = "${var.location}"
+
+## While the function is inline python code sourced by terraform, this inline 
+## cloud-init user-data, also in terraform, is sourced by the python function
+USERDATA = f"""#!/bin/bash
+# Runner hook to complete dynamically provisioned instance lifecycle.
+# Because there is a configurable maximum number of runners, first check
+# the queue: if more jobs than runners, do not terminate
+cat <<'EOF' > /home/gh-runner/bin/complete_lifecycle.sh
+trap 'exit 0' TERM
+export QUEUED=$(curl -s -L   -H "Accept: application/vnd.github+json"   -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/A{REPO_NAME}/actions/runs?sort=created&direction=desc&per_page=25"|grep  -E '"id": [0-9]{{10}}'| sort -r -u| awk '{{print $2}}'|sed -e  's/,//g' |while read x
+do
+curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runs/$x/jobs
+done | grep -e queued -e running |wc -l)
+#export CNT=$(/home/gh-runner/bin/aws ec2 describe-instance-status --instance-ids $(/home/gh-runner/bin/aws ec2 describe-instances --filters "Name=tag:runner,Values=*" --query 'Reservations[].Instances[].InstanceId' --output text) --filters Name=instance-state-name,Values=running,pending --query "length(InstanceStatuses[?InstanceStatus.Status!='ok' || SystemStatus.Status!='ok'])")
+CNT=1
+if (( $CNT > $QUEUED )) || (( $QUEUED == 0 )) || (( $CNT >= 1 )) ; then
+    echo "Server count $CNT is greater than jobs on the queue $QUEUED or QUEUED = 0 or CNT >= 1, shutting down now"
+    #TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+    #INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/instance-id)
+    #REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/placement/region)
+    #/home/gh-runner/bin/aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $REGION
+    shutdown -h now # perhaps install az cli and remove that way...
+    exit 0
+else
+  echo "Keeping runners ($CNT) for jobs queued ($QUEUED). Not ending life-cycle, will let next job do it."
+fi
+EOF
+# Comment out the below line to NOT terminate instance after running a job
+echo ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/home/gh-runner/bin/complete_lifecycle.sh >> /etc/environment
+chmod +x /home/gh-runner/bin/complete_lifecycle.sh
+chmod +x /var/lib/cloud/instance/user-data.txt
+
+# List workflow runs for a repo
+RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
+
+# Use awk to parse the json and count runs
+# It looks for "status" key and counts if it is "queued"
+PENDING_COUNT=$(echo "$RESPONSE" | awk -F'[,:"]' '
+    /"status":/ {{
+        if ($5 == "queued") {{
+            count++
+        }}
+    }}
+    END {{ print count+0 }}
+')
+echo "Number of pending jobs: $PENDING_COUNT"
+if (( $PENDING_COUNT == 0 )) ; then
+  echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
+  sleep 5
+  shutdown -h now
+fi
+# Configure runner and connect to server
+export DEFAULT_MAX=1
+#TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+#export SUFFIX=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/local-ipv4|awk -F. '{{print $4}}')
+export SUFFIX=1
+export RUNNER_TOKEN=$(curl -s -L -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runners/registration-token| grep token|awk -F\\" '{{print $4}}')
+sudo -u gh-runner bash -c "cd /home/gh-runner && ./config.sh remove --token $RUNNER_TOKEN"
+sudo -u gh-runner bash -c "cd /home/gh-runner && ./config.sh --url https://github.com/{REPO_NAME} --token $RUNNER_TOKEN --unattended --replace --name tlc-{MKT_OPT}-runner-$SUFFIX"
+nohup sudo -u gh-runner bash -c 'cd /home/gh-runner && ./run.sh' &
+"""
+
 
 def verify_signature(body: bytes, header_signature: str) -> bool:
     secret = JWT_SECRET
@@ -186,6 +253,9 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     """
         If we are here, the sha256 hash signature is good!
     """
+    global USERDATA
+    # encode user-data
+    USERDATA = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
     
     # Use DefaultAzureCredential to authenticate via Managed Identity
     credential = DefaultAzureCredential()
@@ -198,6 +268,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     vm_parameters = {
         "location": LOCATION,
         "properties": {
+        "userData": USERDATA,
         "storageProfile": {
             "imageReference": {
                 "publisher": "Canonical",
@@ -210,7 +281,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "osProfile": {
             "computerName": VM_NAME,
             "adminUsername": "azureuser",
-            "adminPassword": ADMIN_PASS
+            "adminPassword": ADMIN_PASS,
         },
         "networkProfile": {
             "networkInterfaces": [{"id": NETWORK_INTERFACE}]
