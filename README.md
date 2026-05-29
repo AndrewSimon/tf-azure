@@ -85,7 +85,7 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 3. export TF_VAR_token=<your_github_personal_access_token> # to skip, source from profile
 4. export TF_VAR_adminpass=<your_strong_admin_password> # or source from profile
 5. terraform plan 
-6. terraform apply -auto-approve  ## NOTE: Run this TWICE if this is the first run!
+6. terraform apply -auto-approve  # NOTE: Run TWICE if first run!  And, read COSTS below!
 7. terraform destroy -target=terraform_data.upload_function #Do this before loading python function updates
 8. terraform destroy -target=azurerm_key_vault_secret.adminpass #Do this before applying (MSSQL) admin password updates
 9. terraform destroy #deletes ALL of the remaining resources created by this plan.  
@@ -102,6 +102,14 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
    3. Upload function did not run the first time:  Re-run terraform apply
    4. The upload function runs but there is still no function in the function app:  this is usually due to missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.  You will have syntax errors even if you did not modify the function when any variable values are empty/missing.  Ensure the python app itself has no obvious syntax problems, run python function_app.py on the command line and ensure it returns no errors or output.  If there are errors, try to determine which variable values are coming up empty and/or unset.
    5. If you successfully installed Function App Core Tools, you will be able to run <i>func start</i> in the tf-azure directory and start a local Function App! You can post data with curl, fiddler or other client to <i>http://localhost:7071/api/launch_vm</i> and output not directed to the client will come into the screen running <i>func start</i> as standard error and standard out.  While trouble-shooting, you update the function_app.py code in an editor window, and saved code changes will automatically reload into the <i>func start</i> run, you do not need to restart it.  You can then re-run the client, hit the localhost api endpoint, and see if your code edits changed/fixed things.  Repeat as needed.  When done editing function_app.py <b>remember to update function_app.tf</b> as all of your function_app.py updates will be overwritten next time you run terraform apply.
+
+## Costs
+
+A <i>terraform apply</i> usually triggers the webhook and function as it's (re)deployed, whether you git push to trigger the function or not, and will launch a virtual machine!  Mercifully, first deploy takes 10 minutes, but the webhook is triggered in the first 10 seconds, and there is a 404 as the app route is not up yet. But, once up, with this webhook trigger configured to your own repo(s), this thing will launch every time you send an authorized payload to any of those repos configured. That could be quite a few launches if you are pushing back to your own git repo regularly and frequently, so beware! 
+
+The AWS version called <i>tf-files</i> has working full life-cycle, meaning it successfully joins the GH server becoming a functional Github self-hosted actions runner, that also knows how and when to safely kill itself, and remove vm storage and public ip in all situations along with it (based mostly on job queue count).  As of this writing, the tf-azure plan is still very useful in bringing up a generic 'latest' ubutu (lts) via webhook trigger.  It's an easy and convenient way to instantly request and create, either via github push or webhook payload re-delivery via Github UI, an accessible vm in it's own resource group, virtual network, and so on, whether you need a github self-hosted actions runner, or not! 
+
+  I/we hope to have that done for <i>tf-azure</i> in the coming months.  The functionality includes non-root automatic shutdown on a quiet GH job queue, using API, which I/we do not yet support in Azure just yet.  There may be some crude hard-codes to imitate full life-cycle behavior in limited situations as I/we develop the first release candidate, but it largely won't work.  Meaning nodes will come up fine! It's just that you need to 1. join them to your server manually (when not working) and 2. terminate/delete vms and related resources manually or via terraform destroy when the terminate/remove/delete portion of the life-cycle fails to do it!  To ensure no unwanted vms or ip addresses, always run terraform destroy. It prevents future unwanted runners and public ip addresses via repo trigger that this deploy enables, and will cost you money whether you use those resources or not; but potential costs are incurred <i>only if you do not</i> terraform destroy when done.  
 
 ## Meta
 
