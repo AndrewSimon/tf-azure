@@ -5,10 +5,10 @@ This plan will:
 1. Create a resource group for your 'demo' virtual network
 2. Create 'demo' virtual network and 2 subnets, 1 'public' and 1 'private'
 3. Create 2 NSG for the two subnets to restrict traffic, accordingly
-4. Create a VM instance and network interface in the public subnet
+4. Create a storage account and blob container for the Funcion App
 5. Assign a public IP to the VM instance
 6. Output the public IP so you can connect to your instance
-7. Creates a key vault, key policy, and password secret (for MSSQL)
+7. Creates a key vault, key policy, and password secret (MSSQL and/or VM login)
 8. Creates an Azure Function (you must request a VM quota manually)
 9. Creates a Gitthub webhook
 
@@ -81,9 +81,9 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 ## Terraform Usage example
 
 1. terraform init --upgrade # Perform only once, after first git clone
-2. touch function_app.py # Necessary for filemd5 to work 
-3. export TF_VAR_token=<your_github_personal_access_token> # to skip, source from profile
-4. export TF_VAR_adminpass=<your_strong_admin_password> # or source from profile
+2. touch function_app.py # Necessary first time for filemd5 to work 
+3. export TF_VAR_token=<i>your_github_personal_access_token</i> # to skip, source from profile
+4. export TF_VAR_adminpass=<i>your_strong_admin_password</i> # or source from profile
 5. terraform plan 
 6. terraform apply -auto-approve  # NOTE: Run TWICE if first run!  And, read COSTS below!
 7. terraform destroy -target=terraform_data.upload_function #Do this before loading python function updates
@@ -105,17 +105,17 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 
 ## Costs
 
-A <i>terraform apply</i> usually triggers the webhook and function as it's (re)deployed, whether you git push to trigger the function or not, and will launch a virtual machine!  Mercifully, first deploy takes 10 minutes, but the webhook is triggered in the first 10 seconds, and there is a 404 as the app route is not up yet. But, once up, with this webhook trigger configured to your own repo(s), this thing will launch every time you send an authorized payload to any of those repos configured. That could be quite a few launches if you are pushing back to your own git repo regularly and frequently, so beware! 
+A <i>terraform apply</i> usually triggers the webhook and function as it's (re)deployed, whether you git push to trigger the function or not, and will launch a virtual machine!  Mercifully, you must run the plan TWICE the first time because the function app is not existing yet during the first run and the func build and upload will not trigger. After the second apply, the build and upload runs and takes 10 minutes while the webhook is triggered in the first 10 seconds, so there is an error 404 webhook response as the app route is not up yet.  Note, in both terraform apply runs, no VM is launched, yet, but you will have created the public IP and there is a small hourly cost for it until you destroy (delete/remove) it. But, once the app route is up and running, with this webhook trigger configured to your own repo(s), you will launch every time you a) send an authorized payload (via git push) to any of those repos configured, b) manually trigger the webhook via 'Redelivery' option in the Github UI, or c) re-deploy a webhook via terraform apply. That could be quite a few launches if you are pushing back to your own git repo regularly and frequently, and/or updating or manually triggering the webhook(s), so beware! 
 
-The AWS version called <i>tf-files</i> has working full life-cycle, meaning it successfully joins the GH server becoming a functional Github self-hosted actions runner, that also knows how and when to safely kill itself, and remove vm storage and public ip in all situations along with it (based mostly on job queue count).  As of this writing, the tf-azure plan is still very useful in bringing up a generic 'latest' ubutu (lts) via webhook trigger.  It's an easy and convenient way to instantly request and create, either via github push or webhook payload re-delivery via Github UI, an accessible vm in it's own resource group, virtual network, and so on, whether you need a github self-hosted actions runner, or not! 
+The AWS version of the webhook (dynamic) VM launch called <i>tf-files</i> has a working full life-cycle, meaning it successfully joins the GH server becoming a functional Github self-hosted actions runner, that also knows how and when to safely kill itself, and remove vm storage and public ip in all situations along with it (based mostly on job queue count).  As of this writing, the tf-azure plan is still very useful in bringing up a generic 'latest' ubutu (lts) via webhook trigger.  It's an easy and convenient way to instantly request and create, either via github push or webhook payload re-delivery via Github UI, an accessible vm in it's own resource group, virtual network, and so on, whether you need a github self-hosted actions runner, or not! 
 
-  I/we hope to have that done for <i>tf-azure</i> in the coming months.  The functionality includes non-root automatic shutdown on a quiet GH job queue, using API, which I/we do not yet support in Azure just yet.  There may be some crude hard-codes to imitate full life-cycle behavior in limited situations as I/we develop the first release candidate, but it largely won't work.  Meaning nodes will come up fine! It's just that you need to 1. join them to your server manually (when not working) and 2. terminate/delete vms and related resources manually or via terraform destroy when the terminate/remove/delete portion of the life-cycle fails to do it!  To ensure no unwanted vms or ip addresses, always run terraform destroy. It prevents future unwanted runners and public ip addresses via repo trigger that this deploy enables, and will cost you money whether you use those resources or not; but potential costs are incurred <i>only if you do not</i> terraform destroy when done.  
+I/we hope to have the Github self-hosted actions runner registration and full life-cycle automation completed for <i>tf-azure</i> in the coming months.  The functionality includes non-root automatic shutdown on a quiet GH job queue, using API, which I/we do not yet support in Azure just yet.  There may be some crude hard-codes to imitate full life-cycle behavior in limited situations as I/we develop the first release candidate, but it largely won't work.  Meaning nodes will come up fine! It's just that you need to 1. join them to your Github server manually (when not working) and 2. terminate/delete vms and related resources manually or via terraform destroy when the terminate/remove/delete portion of the life-cycle fails to do it!  To ensure no unwanted vms or ip addresses, always run terraform destroy. It prevents future unwanted runners and public ip addresses via repo trigger that this deploy enables, and will cost you money whether you use those resources or not; but potential costs are incurred <i>only if you do not</i> terraform destroy when done.  
 
 ## Meta
 
 Andrew Simon – asimon@technology-leadership.com
 
 Created 3-09-2026
-Updated 3-10-2026
+Updated 5-10-2026
 
 Distributed under the Apache 2.0 license.
