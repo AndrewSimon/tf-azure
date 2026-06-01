@@ -129,6 +129,7 @@ resource "local_file" "azure_function" {
   content  = <<-EOT
 # This is a generated script by Terraform azure_function.tf
 
+import asyncio
 import base64
 import urllib3
 import hmac
@@ -249,7 +250,7 @@ def verify_signature(body: bytes, header_signature: str) -> bool:
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 @app.route(route="launch_vm", auth_level=func.AuthLevel.ANONYMOUS)
 
-def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
+async def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     """
         Validates the GH webhook secret via it's signature before anything else
     """
@@ -299,11 +300,17 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         }
      }
    }
-    
-    poller = compute_client.virtual_machines.begin_create_or_update(
+    try:
+      poller = compute_client.virtual_machines.begin_create_or_update(
         RESOURCE_GROUP, VM_NAME, vm_parameters
-    )
-    return func.HttpResponse(f"VM creation started: {poller.status()}")
+      )
+      return func.HttpResponse(f"VM creation started: {poller.status()}")
+    except Exception as e:
+      print("Error creating VM:", e)
+    
+if __name__ == "__launch_vm__":
+    asyncio.run(launch_vm())
+    
 
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
