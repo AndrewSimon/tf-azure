@@ -199,6 +199,7 @@ EOF
 # Comment out the below line to NOT terminate instance after running a job
 echo ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/home/azureuser/actions-runner/bin/complete_lifecycle.sh >> /etc/environment
 chmod +x /home/azureuser/actions-runner/bin/complete_lifecycle.sh
+chown -R azureuser:azureuser /home/azureuser
 
 # List workflow runs for a repo
 RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
