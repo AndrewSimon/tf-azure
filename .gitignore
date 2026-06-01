@@ -5,4 +5,7 @@
 *.py
 .python_packages
 __pycache__
+function.zip
+.vscode
+.venv
 

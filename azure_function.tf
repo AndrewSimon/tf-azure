@@ -166,10 +166,12 @@ REGION = "${var.location}"
 ## cloud-init user-data, also in terraform, is sourced by the python function
 USERDATA = f"""#!/bin/bash
 # We can comment/remove install if GHR software is pre-installed on the vm image
-RUNNER_VERSION=$(curl -s https://github.com/actions/runner/tags|grep releases/tag/v|head -n1|awk -F">v" '{{print $2}}'|awk -F"</" '{{print ""$1}}' )
-cd /home/azureuser && mkdir -p actions-runner 2>/dev/null
-cd /home/azureuser/actions-runner && curl -o actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -L https://github.com/actions/runner/releases/download/v${{RUNNER_VERSION}}/actions-runner-linux-x64-${{RUNNER_VERSION}}.tar.gz
-tar xzf ./actions-runner-linux-x64-${{RUNNER_VERSION}}.tar.gz && ./bin/installdependencies.sh
+RUNNER_VERSION=$(curl -s https://github.com/actions/runner/tags|grep releases/tag/v|head -n1|awk -F">v" '{{print $2}}'|awk -F"</" '{{print ""$1}}')
+cd /home/azureuser
+mkdir -p actions-runner 2>/dev/null
+cd /home/azureuser/actions-runner
+curl -o actions-runner-linux-x64-$RUNNER_VERSION.tar.gz -L https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz
+tar xzf ./actions-runner-linux-x64-$RUNNER_VERSION.tar.gz && ./bin/installdependencies.sh
 
 # Runner hook to complete dynamically provisioned instance lifecycle.
 # Because there is a configurable maximum number of runners, first check
