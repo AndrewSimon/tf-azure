@@ -1,0 +1,26 @@
+name: Runs dependency installs and test script on dynamically provisioned gh runners
+# v1
+on: [push]
+
+jobs:
+  complete-lifecycle:
+    #runs-on: ubuntu-latest # For GH Runners, not self-hosted
+    runs-on: self-hosted
+    continue-on-error: true # ALL jobs need this to reach runner hook's lifecycle
+    environment: public 
+#    permissions:
+#      id-token: write # Required for OIDC authentication
+#      contents: read
+    steps:
+#  Demo workflow. Replace the steps below with your actual workflow
+      - name: Run Python shell commands to check os and node name, then sleep 300 seconds
+        shell: python
+        run:  |
+           import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(300);
+      - name: Run bash shell and print a command out
+        shell: bash
+        run:  |
+               date
+               
+#  Lifecycle termination of node at job completion is an 'adminstrator' function controlled
+#  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 

@@ -129,6 +129,7 @@ resource "local_file" "azure_function" {
   content  = <<-EOT
 # This is a generated script by Terraform azure_function.tf
 
+import base64
 import urllib3
 import hmac
 import hashlib
@@ -164,23 +165,29 @@ REGION = "${var.location}"
 ## While the function is inline python code sourced by terraform, this inline 
 ## cloud-init user-data, also in terraform, is sourced by the python function
 USERDATA = f"""#!/bin/bash
+# We can comment/remove install if GHR software is pre-installed on the vm image
+RUNNER_VERSION=$(curl -s https://github.com/actions/runner/tags|grep releases/tag/v|head -n1|awk -F">v" '{{print $2}}'|awk -F"</" '{{print ""$1}}' )
+cd /home/azureuser && mkdir -p actions-runner 2>/dev/null
+cd /home/azureuser/actions-runner && curl -o actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -L https://github.com/actions/runner/releases/download/v${{RUNNER_VERSION}}/actions-runner-linux-x64-${{RUNNER_VERSION}}.tar.gz
+tar xzf ./actions-runner-linux-x64-${{RUNNER_VERSION}}.tar.gz && ./bin/installdependencies.sh
+
 # Runner hook to complete dynamically provisioned instance lifecycle.
 # Because there is a configurable maximum number of runners, first check
 # the queue: if more jobs than runners, do not terminate
-cat <<'EOF' > /home/gh-runner/bin/complete_lifecycle.sh
+cat <<'EOF' > /home/azureuser/actions-runner/bin/complete_lifecycle.sh
 trap 'exit 0' TERM
 export QUEUED=$(curl -s -L   -H "Accept: application/vnd.github+json"   -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/A{REPO_NAME}/actions/runs?sort=created&direction=desc&per_page=25"|grep  -E '"id": [0-9]{{10}}'| sort -r -u| awk '{{print $2}}'|sed -e  's/,//g' |while read x
 do
 curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runs/$x/jobs
 done | grep -e queued -e running |wc -l)
-#export CNT=$(/home/gh-runner/bin/aws ec2 describe-instance-status --instance-ids $(/home/gh-runner/bin/aws ec2 describe-instances --filters "Name=tag:runner,Values=*" --query 'Reservations[].Instances[].InstanceId' --output text) --filters Name=instance-state-name,Values=running,pending --query "length(InstanceStatuses[?InstanceStatus.Status!='ok' || SystemStatus.Status!='ok'])")
+#export CNT=$(/home/azureuser/bin/aws ec2 describe-instance-status --instance-ids $(/home/azureuser/bin/aws ec2 describe-instances --filters "Name=tag:runner,Values=*" --query 'Reservations[].Instances[].InstanceId' --output text) --filters Name=instance-state-name,Values=running,pending --query "length(InstanceStatuses[?InstanceStatus.Status!='ok' || SystemStatus.Status!='ok'])")
 CNT=1
 if (( $CNT > $QUEUED )) || (( $QUEUED == 0 )) || (( $CNT >= 1 )) ; then
     echo "Server count $CNT is greater than jobs on the queue $QUEUED or QUEUED = 0 or CNT >= 1, shutting down now"
     #TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
     #INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/instance-id)
     #REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/placement/region)
-    #/home/gh-runner/bin/aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $REGION
+    #/home/azureuser/bin/aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $REGION
     shutdown -h now # perhaps install az cli and remove that way...
     exit 0
 else
@@ -188,9 +195,8 @@ else
 fi
 EOF
 # Comment out the below line to NOT terminate instance after running a job
-echo ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/home/gh-runner/bin/complete_lifecycle.sh >> /etc/environment
-chmod +x /home/gh-runner/bin/complete_lifecycle.sh
-chmod +x /var/lib/cloud/instance/user-data.txt
+echo ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/home/azureuser/actions-runner/bin/complete_lifecycle.sh >> /etc/environment
+chmod +x /home/azureuser/actions-runner/bin/complete_lifecycle.sh
 
 # List workflow runs for a repo
 RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
@@ -217,9 +223,9 @@ export DEFAULT_MAX=1
 #export SUFFIX=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/local-ipv4|awk -F. '{{print $4}}')
 export SUFFIX=1
 export RUNNER_TOKEN=$(curl -s -L -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runners/registration-token| grep token|awk -F\\" '{{print $4}}')
-sudo -u gh-runner bash -c "cd /home/gh-runner && ./config.sh remove --token $RUNNER_TOKEN"
-sudo -u gh-runner bash -c "cd /home/gh-runner && ./config.sh --url https://github.com/{REPO_NAME} --token $RUNNER_TOKEN --unattended --replace --name tlc-{MKT_OPT}-runner-$SUFFIX"
-nohup sudo -u gh-runner bash -c 'cd /home/gh-runner && ./run.sh' &
+sudo -u azureuser bash -c "cd /home/azureuser/actions-runner && ./config.sh remove --token $RUNNER_TOKEN"
+sudo -u azureuser bash -c "cd /home/azureuser/actions-runner/ && ./config.sh --url https://github.com/{REPO_NAME} --token $RUNNER_TOKEN --unattended --replace --name tlc-{MKT_OPT}-runner-$SUFFIX"
+nohup sudo -u azureuser bash -c 'cd /home/azureuser/actions-runner && ./run.sh' &
 """
 
 
