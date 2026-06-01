@@ -172,6 +172,7 @@ mkdir -p actions-runner 2>/dev/null
 cd /home/azureuser/actions-runner
 curl -o actions-runner-linux-x64-$RUNNER_VERSION.tar.gz -L https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz
 tar xzf ./actions-runner-linux-x64-$RUNNER_VERSION.tar.gz && ./bin/installdependencies.sh
+ln -s /usr/bin/python3 /usr/bin/python
 
 # Runner hook to complete dynamically provisioned instance lifecycle.
 # Because there is a configurable maximum number of runners, first check
@@ -190,7 +191,7 @@ if (( $CNT > $QUEUED )) || (( $QUEUED == 0 )) || (( $CNT >= 1 )) ; then
     #INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/instance-id)
     #REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/placement/region)
     #/home/azureuser/bin/aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $REGION
-    shutdown -h now # perhaps install az cli and remove that way...
+    sudo shutdown -h now # perhaps install az cli and remove that way...
     exit 0
 else
   echo "Keeping runners ($CNT) for jobs queued ($QUEUED). Not ending life-cycle, will let next job do it."
@@ -219,6 +220,7 @@ if (( $PENDING_COUNT == 0 )) ; then
   echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
   sleep 5
   shutdown -h now
+  exit 0
 fi
 # Configure runner and connect to server
 export DEFAULT_MAX=1

@@ -14,7 +14,7 @@ jobs:
     steps:
 #  Demo workflow. Replace the steps below with your actual workflow
       - name: Run Python shell commands to check os and node name, then sleep 300 seconds
-        shell: python3
+        shell: python
         run:  |
            import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(300);
       - name: Run bash shell and print a command out
