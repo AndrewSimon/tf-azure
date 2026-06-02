@@ -62,8 +62,7 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 
 1. Quotas|My quotas --> Subscriptions --> Azure Subscription Name
 2. Provider: App Service --> Region (select the region to deploy)
-3. Select the VM type, the 'B1' is small and affordable. It only needs to run our small python script (which, when triggered by the Webhook, starts another VM that will be our GH Runner VM).
-
+3. Select the VM type, the 'B1' is small and affordable. It only needs to run our small python script (which, when triggered by the Webhook, starts another, bigger if need be, VM that will be our GH Runner VM).
 
 ## Terraform configuration setup
 >Update the main.tf azurerm backend with the newly created storage account name from above

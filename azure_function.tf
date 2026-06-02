@@ -144,6 +144,7 @@ import time
 import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.network import NetworkManagementClient
 
 # Forces regeneration of the file
 ts = time.time()
@@ -162,6 +163,10 @@ REPO_NAME = '${var.repo_name}'
 ADMIN_PASS = "${var.adminpass}"
 MKT_OPT = "dynamic"
 REGION = "${var.location}"
+NIC_NAME = "GH-runner-nic-1"
+IP_NAME = "GH-runner-ip-1"
+SUBNET_ID = "${azurerm_subnet.public.id}"
+NSG_ID = "${azurerm_network_security_group.public.id}"
 
 ## While the function is inline python code sourced by terraform, this inline 
 ## cloud-init user-data, also in terraform, is sourced by the python function
@@ -250,7 +255,7 @@ def verify_signature(body: bytes, header_signature: str) -> bool:
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 @app.route(route="launch_vm", auth_level=func.AuthLevel.ANONYMOUS)
 
-async def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
+def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     """
         Validates the GH webhook secret via it's signature before anything else
     """
@@ -274,7 +279,37 @@ async def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     
     # Initialize clients
     compute_client = ComputeManagementClient(credential, SUBSCRIPTION_ID)
-    # Logic to provision VNet, Subnet, and NIC would go here...
+    network_client = NetworkManagementClient(credential, SUBSCRIPTION_ID)
+    
+    # Create Public IP
+    print("Creating public IP address...")
+    ip_poller = network_client.public_ip_addresses.begin_create_or_update(
+      RESOURCE_GROUP,
+      IP_NAME,
+      {
+        "location": LOCATION,
+        "sku": {"name": "Standard"},
+        "public_ip_allocation_method": "Static"
+      }
+    )
+    ip_result = ip_poller.result()
+    
+    # Create NIC
+    print(f"Creating NIC with public IP: {NIC_NAME}")
+    nic_poller = network_client.network_interfaces.begin_create_or_update(
+      RESOURCE_GROUP,
+      NIC_NAME,
+      {
+        "location": LOCATION,
+        "ipConfigurations": [{
+            "name": "internal",
+            "subnet": {"id": SUBNET_ID},
+            "public_ip_address": {"id": ip_result.id},
+          }],
+        "network_security_group": {"id": NSG_ID}
+      }
+    )
+    nic_result = nic_poller.result()   
 
     # Create the VM
     vm_parameters = {
@@ -296,21 +331,18 @@ async def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
             "adminPassword": ADMIN_PASS,
         },
         "networkProfile": {
-            "networkInterfaces": [{"id": NETWORK_INTERFACE}]
+            "networkInterfaces": [{"id": nic_result.id}]
         }
      }
    }
     try:
+      print(f"Creating VM with public IP: {VM_NAME}")
       poller = compute_client.virtual_machines.begin_create_or_update(
         RESOURCE_GROUP, VM_NAME, vm_parameters
       )
       return func.HttpResponse(f"VM creation started: {poller.status()}")
     except Exception as e:
-      print("Error creating VM:", e)
-    
-if __name__ == "__launch_vm__":
-    asyncio.run(launch_vm())
-    
+      print("Error creating VM:", e)  
 
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
