@@ -149,15 +149,12 @@ from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
 
-# Forces regeneration of the file
-ts = time.time()
-
-# Make all variables global so they are accessible within various definitions
-global SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME, JWT_SECRET, USERDATA
+# Create suffix to use for device/resource names
+current_time = time.time()        
+time_str = str(current_time)
+SUFFIX = time_str[-6:]
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
-NETWORK_INTERFACE = "${azurerm_network_interface.eth0.id}"
-VM_NAME = "Github-runner-1"
 JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
 LOCATION = "${var.location}"
 VM_SIZE = "${var.vm_size}"
@@ -166,8 +163,12 @@ REPO_NAME = '${var.repo_name}'
 ADMIN_PASS = "${var.adminpass}"
 MKT_OPT = "dynamic"
 REGION = "${var.location}"
-NIC_NAME = "GH-runner-nic-1"
-IP_NAME = "GH-runner-ip-1"
+NAME = "Github-runner-"
+NIC_BNAME = "GH-runner-nic-"
+IP_BNAME = "GH-runner-ip-"
+VM_NAME = NAME + SUFFIX
+NIC_NAME = NIC_BNAME + SUFFIX
+IP_NAME = IP_BNAME + SUFFIX
 SUBNET_ID = "${azurerm_subnet.public.id}"
 NSG_ID = "${azurerm_network_security_group.public.id}"
 
@@ -231,6 +232,7 @@ if (( $PENDING_COUNT == 0 )) ; then
   shutdown -h now
   exit 0
 fi
+
 # Configure runner and connect to server
 export DEFAULT_MAX=1
 #TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
@@ -334,14 +336,14 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
             "adminPassword": ADMIN_PASS,
         },
         "networkProfile": {
-            "networkInterfaces": [{"id": nic_result.id}]
+            "networkInterfaces": [{"id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/{NIC_NAME}"}]
         }
      }
    }
     try:
       print(f"Creating VM with public IP: {VM_NAME}")
-      poller = compute_client.virtual_machines.begin_create_or_update(
-        RESOURCE_GROUP, VM_NAME, vm_parameters
+      compute_client.virtual_machines.begin_create_or_update(
+        RESOURCE_GROUP, VM_NAME, vm_parameters, polling=False 
       )
       return func.HttpResponse(f"VM creation started: {poller.status()}")
     except Exception as e:
