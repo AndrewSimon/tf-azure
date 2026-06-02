@@ -113,6 +113,9 @@ resource "terraform_data" "upload_function" {
 
     interpreter = ["${var.bashpath}", "-c"]
   }
+  depends_on = [
+    azurerm_function_app_flex_consumption.demo
+  ]
 }
 
 #resource "terraform_data" "bootstrap" {
