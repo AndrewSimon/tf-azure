@@ -237,13 +237,11 @@ fi
 export DEFAULT_MAX=1
 #TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 #export SUFFIX=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/local-ipv4|awk -F. '{{print $4}}')
-export SUFFIX=1
 export RUNNER_TOKEN=$(curl -s -L -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runners/registration-token| grep token|awk -F\\" '{{print $4}}')
 sudo -u azureuser bash -c "cd /home/azureuser/actions-runner && ./config.sh remove --token $RUNNER_TOKEN"
-sudo -u azureuser bash -c "cd /home/azureuser/actions-runner/ && ./config.sh --url https://github.com/{REPO_NAME} --token $RUNNER_TOKEN --unattended --replace --name tlc-{MKT_OPT}-runner-$SUFFIX"
+sudo -u azureuser bash -c "cd /home/azureuser/actions-runner/ && ./config.sh --url https://github.com/{REPO_NAME} --token $RUNNER_TOKEN --unattended --replace --name tlc-{MKT_OPT}-runner-{SUFFIX}"
 nohup sudo -u azureuser bash -c 'cd /home/azureuser/actions-runner && ./run.sh' &
 """
-
 
 def verify_signature(body: bytes, header_signature: str) -> bool:
     secret = JWT_SECRET
@@ -345,7 +343,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
       compute_client.virtual_machines.begin_create_or_update(
         RESOURCE_GROUP, VM_NAME, vm_parameters, polling=False 
       )
-      return func.HttpResponse(f"VM creation started: {poller.status()}")
+      return func.HttpResponse(f"VM creation started: {VM_NAME}")
     except Exception as e:
       print("Error creating VM:", e)  
 
