@@ -8,6 +8,15 @@ os_type = "Linux"
 	sku_name = "FC1" # Consumption plan
 }
 
+# App registration with Entra ID and Password below it
+resource "azuread_application" "function_auth" {
+  display_name     = "tlc-function-app-auth"
+  sign_in_audience = "AzureADMyOrg"
+}
+resource "azuread_application_password" "function_auth_secret" {
+  application_id = azuread_application.function_auth.id
+}
+
 resource "azurerm_role_assignment" "kudu_role" {
   scope                = azurerm_function_app_flex_consumption.demo.id
   role_definition_name = "Website Contributor"
@@ -64,7 +73,21 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 #    update = "90m"
 #    delete = "90m"
 #  }
+  auth_settings_v2 {
+    auth_enabled           = true
+    unauthenticated_action = "AllowAnonymous" # Not as safe but we have web secret and CORS too
+    default_provider       = "azureactivedirectory"
+    active_directory_v2 {
+      client_id                  = azuread_application.function_auth.client_id
+      client_secret_setting_name = "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
+      tenant_auth_endpoint   = "https://login.microsoftonline.com/${data.azurerm_client_config.current.tenant_id}/v2.0/"
+    }
+    login {}
+  }
 
+  app_settings = {
+    "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = azuread_application_password.function_auth_secret.value
+  }
  # app_settings = {
     # Required for remote builds (Python/Node) -> conficts with WEBSITE_RUN_FROM_PACKAGE = 1
 #    "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
@@ -78,7 +101,7 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   site_config {
     # CORS (Optional - example)
     cors {
-      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]  
+      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"    ]  
     }
 
     # HTTP 2.0 (Optional)
@@ -166,9 +189,11 @@ REGION = "${var.location}"
 NAME = "Github-runner-"
 NIC_BNAME = "GH-runner-nic-"
 IP_BNAME = "GH-runner-ip-"
+DISK_BNAME = "GH-runner-disk-"
 VM_NAME = NAME + SUFFIX
 NIC_NAME = NIC_BNAME + SUFFIX
 IP_NAME = IP_BNAME + SUFFIX
+DISK_NAME = DISK_BNAME + SUFFIX
 SUBNET_ID = "${azurerm_subnet.public.id}"
 NSG_ID = "${azurerm_network_security_group.public.id}"
 
@@ -278,7 +303,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     USERDATA = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
     
     # Use DefaultAzureCredential to authenticate via Managed Identity
-    credential = DefaultAzureCredential()
+    credential = DefaultAzureCredential(additionally_allowed_tenants=["*"])
     
     # Initialize clients
     compute_client = ComputeManagementClient(credential, SUBSCRIPTION_ID)
@@ -292,7 +317,8 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
       {
         "location": LOCATION,
         "sku": {"name": "Standard"},
-        "public_ip_allocation_method": "Static"
+        "public_ip_allocation_method": "Static",
+        "deleteOption": "Delete"
       }
     )
     ip_result = ip_poller.result()
@@ -304,6 +330,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
       NIC_NAME,
       {
         "location": LOCATION,
+        "identity": "SystemAssigned",
         "ipConfigurations": [{
             "name": "internal",
             "subnet": {"id": SUBNET_ID},
@@ -320,6 +347,11 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "properties": {
         "userData": USERDATA,
         "storageProfile": {
+            "osDisk": {
+              "name": DISK_NAME,
+              "deleteOption": "Delete",
+              "createOption": "FromImage"
+              },
             "imageReference": {
                 "publisher": "Canonical",
                 "offer": "0001-com-ubuntu-server-jammy",
@@ -334,19 +366,22 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
             "adminPassword": ADMIN_PASS,
         },
         "networkProfile": {
-            "networkInterfaces": [{"id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/{NIC_NAME}"}]
+            "networkInterfaces": [{
+              "id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/{NIC_NAME}",
+              "deleteOption": "Delete" 
+              }]
         }
      }
    }
     try:
       print(f"Creating VM with public IP: {VM_NAME}")
-      compute_client.virtual_machines.begin_create_or_update(
+      poller = compute_client.virtual_machines.begin_create_or_update(
         RESOURCE_GROUP, VM_NAME, vm_parameters, polling=False 
       )
       return func.HttpResponse(f"VM creation started: {VM_NAME}")
     except Exception as e:
       print("Error creating VM:", e)  
-
+      return func.HttpResponse(f"VM creationcfailed: {VM_NAME}")
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
 }
