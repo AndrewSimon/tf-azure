@@ -352,7 +352,10 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "ipConfigurations": [{
             "name": "internal",
             "subnet": {"id": SUBNET_ID},
-            "public_ip_address": {"id": ip_result.id},
+            "public_ip_address": {
+              "id": ip_result.id,
+              "delete_option": "Delete"
+              },
           }],
         "network_security_group": {"id": NSG_ID}
       }
