@@ -46,6 +46,9 @@ data "azuread_user" "current_user" {
   object_id = data.azuread_client_config.current.object_id
 }
 
+data "azurerm_role_definition" "vm_contributor" {
+  name = "Virtual Machine Contributor"
+}
 resource "time_static" "sas" {}
 
 output "subscription_id" {
@@ -159,6 +162,13 @@ resource "azurerm_network_interface" "eth0" {
 resource "azurerm_network_interface_security_group_association" "sg_assoc" {
   network_interface_id      = azurerm_network_interface.eth0.id
   network_security_group_id = azurerm_network_security_group.public.id
+}
+
+# Assign the vm_contributor role to the Service Principal at the Resource Group scope
+resource "azurerm_role_assignment" "sp_vm_contributor" {
+  scope                = azurerm_resource_group.demo.id
+  role_definition_id   = data.azurerm_role_definition.vm_contributor.id
+  principal_id         = data.azuread_client_config.current.object_id 
 }
 
 ## We will launch a dynamic VM via Azure Function App similar to this static VM

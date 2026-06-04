@@ -218,6 +218,7 @@ NSG_ID = "${azurerm_network_security_group.public.id}"
 ## While the function is inline python code sourced by terraform, this inline 
 ## cloud-init user-data, also in terraform, is sourced by the python function
 USERDATA = f"""#!/bin/bash
+apt-get install jq -y
 # We can comment/remove install if GHR software is pre-installed on the vm image
 RUNNER_VERSION=$(curl -s https://github.com/actions/runner/tags|grep releases/tag/v|head -n1|awk -F">v" '{{print $2}}'|awk -F"</" '{{print ""$1}}')
 cd /home/azureuser
@@ -386,13 +387,13 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
             "adminUsername": "azureuser",
             "adminPassword": ADMIN_PASS,
         },
-        "networkProfile": {
+         "networkProfile": {
             "networkInterfaces": [{
               "id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/{NIC_NAME}",
-              "deleteOption": "Delete" 
+              "deleteOption": "Delete"
               }]
         }
-     }
+      }
    }
     try:
       print(f"Creating VM with public IP: {VM_NAME}")
