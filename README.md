@@ -98,7 +98,7 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
     
    1. If 'no file exists at ./function_app.py' or 'fiile not found': run 'touch function_app.py' then re-run 'terraform apply/destroy'.
    2. Function app is created but not the function: re-run terraform apply, ensure the terraform_data.upload_function runs.  The upload package is about 500Mb because dependency libraries are built and uploaded along with your function.
-   3. Upload function did not run the first time:  Re-run terraform apply
+   3. Upload function says ' Call to function "filemd5" failed: function returned an inconsistent result', or upload did not run at all:  Re-run terraform apply
    4. The upload function runs but there is still no function in the function app:  this is usually due to missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.  You will have syntax errors even if you did not modify the function when any variable values are empty/missing.  Ensure the python app itself has no obvious syntax problems, run python function_app.py on the command line and ensure it returns no errors or output.  If there are errors, try to determine which variable values are coming up empty and/or unset.
    5. Still no Azure Function and/or upload fails even though there are no errors in the function when running locally: delete the Function App manually through UI, run number 7 from above, <i>terraform destroy -target=terraform_data.upload_function</i>, then re-run terraform apply.
    6. You manually deleted the webhook but terraform isn't recreating it: run terraform destroy -target=github_repository_webhook.tf_webhook

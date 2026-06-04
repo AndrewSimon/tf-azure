@@ -17,6 +17,17 @@ resource "azuread_application_password" "function_auth_secret" {
   application_id = azuread_application.function_auth.id
 }
 
+# Assign the Contributor role to the Function App's identity
+resource "azurerm_role_assignment" "contributor" {
+  scope                = azurerm_resource_group.demo.id # What access is to
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_function_app_flex_consumption.demo.identity[0].principal_id # Who gets above access
+  depends_on = [
+    azurerm_function_app_flex_consumption.demo
+  ]
+}
+
+# Place-holder for future dev
 resource "azurerm_role_assignment" "kudu_role" {
   scope                = azurerm_function_app_flex_consumption.demo.id
   role_definition_name = "Website Contributor"
@@ -99,13 +110,20 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 #  }
 
   site_config {
-    # CORS (Optional - example)
+    # CORS (CORS applies to browsers, mostly)
     cors {
       allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"    ]  
     }
-
     # HTTP 2.0 (Optional)
     http2_enabled = true
+        # Native Application Insights Activation 
+    application_insights_connection_string = azurerm_application_insights.demo.connection_string
+    application_insights_key               = azurerm_application_insights.demo.instrumentation_key
+  }
+  
+  # Activate the System Assigned Managed Identity so function has access to do stuff in Azure
+  identity {
+    type = "SystemAssigned"
   }
 }
 
@@ -330,7 +348,6 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
       NIC_NAME,
       {
         "location": LOCATION,
-        "identity": "SystemAssigned",
         "ipConfigurations": [{
             "name": "internal",
             "subnet": {"id": SUBNET_ID},
@@ -339,11 +356,15 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "network_security_group": {"id": NSG_ID}
       }
     )
-    nic_result = nic_poller.result()   
+## We don't need nic result as that value is derived below
+##    nic_result = nic_poller.result()   
 
     # Create the VM
     vm_parameters = {
         "location": LOCATION,
+        "identity": {
+          "type": "SystemAssigned"
+        },
         "properties": {
         "userData": USERDATA,
         "storageProfile": {
@@ -376,12 +397,12 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     try:
       print(f"Creating VM with public IP: {VM_NAME}")
       poller = compute_client.virtual_machines.begin_create_or_update(
-        RESOURCE_GROUP, VM_NAME, vm_parameters, polling=False 
+        RESOURCE_GROUP, VM_NAME, vm_parameters
       )
       return func.HttpResponse(f"VM creation started: {VM_NAME}")
     except Exception as e:
       print("Error creating VM:", e)  
-      return func.HttpResponse(f"VM creationcfailed: {VM_NAME}")
+      return func.HttpResponse(str(e), status_code=500)
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
 }
@@ -422,6 +443,24 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
 #    data.archive_file.function_zip
 #  ]
 #}
+
+# Create the Log Analytics Workspace
+resource "azurerm_log_analytics_workspace" "demo" {
+  name                = "lw-flex-consumption-demo"
+  location            = azurerm_resource_group.demo.location
+  resource_group_name = azurerm_resource_group.demo.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+}
+
+# Create the Application Insights Component
+resource "azurerm_application_insights" "demo" {
+  name                = "ai-flex-consumption-prod"
+  location            = azurerm_resource_group.demo.location
+  resource_group_name = azurerm_resource_group.demo.name
+  workspace_id        = azurerm_log_analytics_workspace.demo.id
+  application_type    = "web"
+}
 
 # Register the webhook in GitHub
 resource "github_repository_webhook" "tf_webhook" {
