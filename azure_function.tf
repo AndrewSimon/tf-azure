@@ -112,7 +112,7 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   site_config {
     # CORS (CORS applies to browsers, mostly)
     cors {
-      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"    ]  
+      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]
     }
     # HTTP 2.0 (Optional)
     http2_enabled = true
@@ -214,7 +214,13 @@ IP_NAME = IP_BNAME + SUFFIX
 DISK_NAME = DISK_BNAME + SUFFIX
 SUBNET_ID = "${azurerm_subnet.public.id}"
 NSG_ID = "${azurerm_network_security_group.public.id}"
+UAI_ID = "${azurerm_user_assigned_identity.vm_identity.id}"
 
+## Define vm identity here so the value can be passed in via empty dict at vm creation
+IDENTITY_RESOURCE_ID = (
+    f"/subscriptions/{subscription_id}/resourceGroups/{RESOURCE_GROUP}/"
+    f"providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-vm-contributor"
+)
 ## While the function is inline python code sourced by terraform, this inline 
 ## cloud-init user-data, also in terraform, is sourced by the python function
 USERDATA = f"""#!/bin/bash
@@ -273,7 +279,8 @@ echo "Number of pending jobs: $PENDING_COUNT"
 if (( $PENDING_COUNT == 0 )) ; then
   echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
   sleep 5
-  shutdown -h now
+  TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
+  curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
   exit 0
 fi
 
@@ -367,8 +374,11 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     vm_parameters = {
         "location": LOCATION,
         "identity": {
-          "type": "SystemAssigned"
-        },
+          "type": "UserAssigned",  # Use "SystemAssigned, UserAssigned" if enabling both
+          "user_assigned_identities": {
+            IDENTITY_RESOURCE_ID: {}  # Must be an empty dictionary
+        }
+      },
         "properties": {
         "userData": USERDATA,
         "storageProfile": {

@@ -49,6 +49,7 @@ data "azuread_user" "current_user" {
 data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
 }
+
 resource "time_static" "sas" {}
 
 output "subscription_id" {
@@ -165,12 +166,24 @@ resource "azurerm_network_interface_security_group_association" "sg_assoc" {
 }
 
 # Assign the vm_contributor role to the Service Principal at the Resource Group scope
-resource "azurerm_role_assignment" "sp_vm_contributor" {
-  scope                = azurerm_resource_group.demo.id
-  role_definition_id   = data.azurerm_role_definition.vm_contributor.id
-  principal_id         = data.azuread_client_config.current.object_id 
+#resource "azurerm_role_assignment" "sp_vm_contributor" {
+#  scope                = azurerm_resource_group.demo.id
+#  role_definition_id   = data.azurerm_role_definition.vm_contributor.id
+#  principal_id         = data.azuread_client_config.current.object_id 
+#}
+
+# CREATE THE USER-ASSIGNED MANAGED IDENTITY (Executed Prior to Dynamic VMs)
+resource "azurerm_user_assigned_identity" "vm_identity" {
+  name                = "uami-vm-contibutor"
+  location            = azurerm_resource_group.demo.location
+  resource_group_name = azurerm_resource_group.demo.name
 }
 
+resource "azurerm_role_assignment" "vm_role" {
+  scope                = azurerm_resource_group.demo.id
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_user_assigned_identity.vm_identity.principal_id
+}
 ## We will launch a dynamic VM via Azure Function App similar to this static VM
 # "azurerm_linux_virtual_machine" "tlc_vm" {
 #  name                = "TLC"
