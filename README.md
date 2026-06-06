@@ -2,15 +2,17 @@
 > Stands up some Azure resources in it's own resource group
 
 This plan will:
-1. Create a resource group for your 'demo' virtual network
-2. Create 'demo' virtual network and 2 subnets, 1 'public' and 1 'private'
-3. Create 2 NSG for the two subnets to restrict traffic, accordingly
-4. Create a storage account and blob container for the Funcion App
-5. Assign a public IP for the VM instance
-6. Output the public IP so you can connect to your instance
-7. Creates a key vault, key policy, and password secret (MSSQL and/or VM login)
-8. Creates an Azure Function (you must request a VM quota manually)
-9. Creates a Github webhook
+1.  Create a resource group for your 'demo' virtual network
+2.  Create 'demo' virtual network and 2 subnets, 1 'public' and 1 'private'
+3.  Create 2 NSG for the two subnets to restrict traffic, accordingly
+4.  Create a storage account and blob container for the Funcion App
+5.  Assign a public IP for the VM instance
+6.  Output the public IP so you can connect to your instance
+7.  Creates a key vault, key policy, and password secret (MSSQL and/or VM login)
+8.  Creates an Azure Function (you must request a VM quota manually)
+9.  Creates a Github webhook
+10. Creates an analytics workspace and Insights components
+11. Creates a user-assigned identity that dynamically created vms are assigned
 
 ## Requirements
 > Install the following:

@@ -174,7 +174,7 @@ resource "azurerm_network_interface_security_group_association" "sg_assoc" {
 
 # CREATE THE USER-ASSIGNED MANAGED IDENTITY (Executed Prior to Dynamic VMs)
 resource "azurerm_user_assigned_identity" "vm_identity" {
-  name                = "uami-vm-contibutor"
+  name                = "uami-vm-contributor"
   location            = azurerm_resource_group.demo.location
   resource_group_name = azurerm_resource_group.demo.name
 }

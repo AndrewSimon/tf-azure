@@ -218,8 +218,7 @@ UAI_ID = "${azurerm_user_assigned_identity.vm_identity.id}"
 
 ## Define vm identity here so the value can be passed in via empty dict at vm creation
 IDENTITY_RESOURCE_ID = (
-    f"/subscriptions/{subscription_id}/resourceGroups/{RESOURCE_GROUP}/"
-    f"providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-vm-contributor"
+    f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-vm-contributor"
 )
 ## While the function is inline python code sourced by terraform, this inline 
 ## cloud-init user-data, also in terraform, is sourced by the python function
@@ -251,7 +250,8 @@ if (( $CNT > $QUEUED )) || (( $QUEUED == 0 )) || (( $CNT >= 1 )) ; then
     #INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/instance-id)
     #REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/placement/region)
     #/home/azureuser/bin/aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $REGION
-    sudo shutdown -h now # perhaps install az cli and remove that way...
+    TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
+    curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
     exit 0
 else
   echo "Keeping runners ($CNT) for jobs queued ($QUEUED). Not ending life-cycle, will let next job do it."
@@ -280,7 +280,7 @@ if (( $PENDING_COUNT == 0 )) ; then
   echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
   sleep 5
   TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
-  curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
+  curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
   exit 0
 fi
 
