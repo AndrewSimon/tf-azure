@@ -336,18 +336,18 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     network_client = NetworkManagementClient(credential, SUBSCRIPTION_ID)
     
     # Create Public IP
-    print("Creating public IP address...")
-    ip_poller = network_client.public_ip_addresses.begin_create_or_update(
-      RESOURCE_GROUP,
-      IP_NAME,
-      {
-        "location": LOCATION,
-        "sku": {"name": "Standard"},
-        "public_ip_allocation_method": "Static",
-        "deleteOption": "Delete"
-      }
-    )
-    ip_result = ip_poller.result()
+#    print("Creating public IP address...")
+#    ip_poller = network_client.public_ip_addresses.begin_create_or_update(
+#      RESOURCE_GROUP,
+#      IP_NAME,
+#      {
+#        "location": LOCATION,
+#        "sku": {"name": "Standard"},
+#        "public_ip_allocation_method": "Static",
+#        "deleteOption": "Delete"
+#      }
+#    )
+#    ip_result = ip_poller.result()
     
     # Create NIC
     print(f"Creating NIC with public IP: {NIC_NAME}")
@@ -359,10 +359,10 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "ipConfigurations": [{
             "name": "internal",
             "subnet": {"id": SUBNET_ID},
-            "public_ip_address": {
-              "id": ip_result.id,
-              "delete_option": "Delete"
-              },
+#            "public_ip_address": {
+#              "id": ip_result.id,
+#              "delete_option": "Delete"
+#              },
           }],
         "network_security_group": {"id": NSG_ID}
       }
@@ -375,7 +375,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "location": LOCATION,
         "identity": {
           "type": "UserAssigned",  # Use "SystemAssigned, UserAssigned" if enabling both
-          "user_assigned_identities": {
+          "userAssignedIdentities": {
             IDENTITY_RESOURCE_ID: {}  # Must be an empty dictionary
         }
       },
