@@ -194,6 +194,8 @@ from azure.mgmt.network import NetworkManagementClient
 current_time = time.time()        
 time_str = str(current_time)
 SUFFIX = time_str[-6:]
+# Required for terraform-python compatibility
+true = True
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
 JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
@@ -350,7 +352,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
 #    ip_result = ip_poller.result()
     
     # Create NIC
-    print(f"Creating NIC with public IP: {NIC_NAME}")
+    print(f"Creating NIC without public IP: {NIC_NAME}")
     nic_poller = network_client.network_interfaces.begin_create_or_update(
       RESOURCE_GROUP,
       NIC_NAME,
@@ -384,8 +386,8 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "storageProfile": {
             "osDisk": {
               "name": DISK_NAME,
-              "deleteOption": "Delete",
-              "createOption": "FromImage"
+              "createOption": "FromImage",
+              "deleteOption": "Delete"
               },
             "imageReference": {
                 "publisher": "Canonical",
@@ -403,7 +405,9 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
          "networkProfile": {
             "networkInterfaces": [{
               "id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/{NIC_NAME}",
-              "deleteOption": "Delete"
+              "properties": {
+                "deleteOption": "Delete"
+                }
               }]
         }
       }
