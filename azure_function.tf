@@ -222,9 +222,6 @@ UAI_ID = "${azurerm_user_assigned_identity.vm_identity.id}"
 IDENTITY_RESOURCE_ID = (
     f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-vm-contributor"
 )
-## JSON payloads require terraform to replace variables as deeply nested brackets cause python errors
-NIC_SETOPT = { "properties": { "networkProfile": { "networkInterfaces": [ { "id": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.demo.name}/providers/Microsoft.Network/networkInterfaces/$NIC_NAME", "properties": { "primary": true, "deleteOption": "Delete" } } ] } } }
-
 ## While the function is inline python code sourced by terraform, this inline 
 ## cloud-init user-data, also in terraform, is sourced by the python function
 USERDATA = f"""#!/bin/bash
