@@ -102,6 +102,7 @@ resource "azurerm_subnet" "private" {
 }
 
 resource "azurerm_public_ip" "demo_ip" {
+  count = var.static_option == 1 ? 1 : 0
   name                = "DemoPublicIP"
   location            = azurerm_resource_group.demo.location
   resource_group_name = azurerm_resource_group.demo.name
@@ -148,6 +149,7 @@ resource "azurerm_network_security_group" "private" {
 }
 
 resource "azurerm_network_interface" "eth0" {
+  count = var.static_option == 1 ? 1 : 0
   name                = "TLC_Primary_Interface"
   location            = azurerm_resource_group.demo.location
   resource_group_name = azurerm_resource_group.demo.name
@@ -161,6 +163,7 @@ resource "azurerm_network_interface" "eth0" {
 }
 
 resource "azurerm_network_interface_security_group_association" "sg_assoc" {
+  count = var.static_option == 1 ? 1 : 0
   network_interface_id      = azurerm_network_interface.eth0.id
   network_security_group_id = azurerm_network_security_group.public.id
 }
@@ -184,28 +187,29 @@ resource "azurerm_role_assignment" "vm_role" {
   role_definition_name = "Contributor"
   principal_id         = azurerm_user_assigned_identity.vm_identity.principal_id
 }
-## We will launch a dynamic VM via Azure Function App similar to this static VM
-# "azurerm_linux_virtual_machine" "tlc_vm" {
-#  name                = "TLC"
-#  location            = azurerm_resource_group.demo.location
-#  resource_group_name = azurerm_resource_group.demo.name
-#  size                = "Standard_DC1s_v3"
-#  admin_username      = "adminuser"
-#  network_interface_ids = [azurerm_network_interface.eth0.id]
-#
-#  os_disk {
-#    name                 = "TLC-demo-hdd1"
-#    caching              = "ReadWrite"
-#    storage_account_type = "Standard_LRS"
-#  }
-#
-#  source_image_reference {
-#    publisher = "Canonical"
-#    offer     = "0001-com-ubuntu-server-jammy"
-#    sku       = "22_04-lts-gen2"
-#    version   = "latest"
-#  }
-#}
+## We launch dynamic VMs via Azure Function App similar to this static VM
+ "azurerm_linux_virtual_machine" "tlc_vm" {
+  count = var.static_option == 1 ? 1 : 0
+  name                = "TLC"
+  location            = azurerm_resource_group.demo.location
+  resource_group_name = azurerm_resource_group.demo.name
+  size                = "Standard_DC1s_v3"
+  admin_username      = "adminuser"
+  network_interface_ids = [azurerm_network_interface.eth0.id]
+
+  os_disk {
+    name                 = "TLC-demo-hdd1"
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+}
 
 # Create random password to be stored
 resource "random_password" "password" {
@@ -240,6 +244,7 @@ resource "github_actions_secret" "webhook_secret" {
 #}
 
 output "public_ip_address" {
+  count = var.static_option == 1 ? 1 : 0
   value = azurerm_public_ip.demo_ip.ip_address
 }
 output "current_user_principal_name" {

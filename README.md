@@ -6,11 +6,11 @@ This plan will:
 2.  Create 'demo' virtual network and 2 subnets, 1 'public' and 1 'private'
 3.  Create 2 NSG for the two subnets to restrict traffic, accordingly
 4.  Create a storage account and blob container for the Funcion App
-5.  Assign a public IP for a VM instance (a single static instance is commented)
-6.  Output the public IP so you can connect to your instance, if you enable it
+5.  Assign a public IP for a VM instance (when enabled, defaults to disabled)
+6.  Output the public IP so you can connect to your instance, if you enabled it
 7.  Creates a key vault, key policy, and password secret (MSSQL and/or VM login)
 8.  Creates an Azure Function to launch VMs dynamically (request VM quotas manually)
-9.  Creates a Github webhook with secret (also stored in vault) and Azure API endpoint url
+9.  Creates a Github webhook with secret (stored in vault) and Azure API endpoint url
 10. Creates an analytics workspace and Insights components
 11. Creates an IAM (RBAC) user-assigned identity and role dynamic vms are assigned
 

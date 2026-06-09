@@ -63,3 +63,8 @@ description = "This is necessary to run bash in Windows (i.e. /bin dirname is pr
   type      = string
   default   = "bash"
 }
+variable "static_option" {
+  type      = number
+  ## 1 = yes, I want static vm resources too, 0 = no, thank you
+  default   = 0
+}
