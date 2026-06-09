@@ -352,7 +352,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
 #    ip_result = ip_poller.result()
     
     # Create NIC
-    print(f"Creating NIC with public IP: {NIC_NAME}")
+    print(f"Creating NIC without public IP: {NIC_NAME}")
     nic_poller = network_client.network_interfaces.begin_create_or_update(
       RESOURCE_GROUP,
       NIC_NAME,
@@ -386,8 +386,8 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         "storageProfile": {
             "osDisk": {
               "name": DISK_NAME,
-              "deleteOption": "Delete",
-              "createOption": "FromImage"
+              "createOption": "FromImage",
+              "deleteOption": "Delete"
               },
             "imageReference": {
                 "publisher": "Canonical",
