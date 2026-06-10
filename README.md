@@ -120,6 +120,6 @@ Most importantly, this plan is an easy and convenient way to deploy the infrastr
 Andrew Simon – asimon@technology-leadership.com
 
 Created 3-09-2026
-Updated 5-31-2026
+Updated 6-10-2026
 
 Distributed under the Apache 2.0 license.
