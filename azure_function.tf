@@ -101,8 +101,8 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   }
   
   always_ready {
-    name  = "http" # Enable Always Ready
-    instance_count = 1
+    name  = "http" 
+    instance_count = 1 # Set to 1 or higher to enable Always Ready
   }
  # app_settings = {
     # Required for remote builds (Python/Node) -> conficts with WEBSITE_RUN_FROM_PACKAGE = 1
