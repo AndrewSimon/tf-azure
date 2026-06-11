@@ -268,7 +268,7 @@ if  [ "$IS_BUSY" = "false" ] ; then
     curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
     exit 0
 else
-  echo "Keeping runner as it is in use. Not ending life-cycle, will let next job do it."
+  echo "This runner just got another job assigned! Keeping runner! Not ending life-cycle, will let next job do it."
 fi
 EOF
 # Comment out the below line to NOT terminate instance after running a job
