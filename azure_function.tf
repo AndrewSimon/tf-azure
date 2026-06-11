@@ -132,6 +132,9 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   }
 }
 
+## This custom resource is a more reliable upload than via flex app resource above.
+## Additionally, this custom resource can manage the function life-cycle 
+## independently from the flex app resource
 resource "terraform_data" "upload_function" {
   triggers_replace = {
     file_content_hash = filemd5("${path.module}/function_app.py")
@@ -245,14 +248,18 @@ ln -s /usr/bin/python3 /usr/bin/python
 # the queue: if more jobs than runners, do not terminate
 cat <<'EOF' > /home/azureuser/actions-runner/bin/complete_lifecycle.sh
 trap 'exit 0' TERM
-export QUEUED=$(curl -s -L   -H "Accept: application/vnd.github+json"   -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/A{REPO_NAME}/actions/runs?sort=created&direction=desc&per_page=25"|grep  -E '"id": [0-9]{{10}}'| sort -r -u| awk '{{print $2}}'|sed -e  's/,//g' |while read x
+#export QUEUED=$(curl -s -L   -H "Accept: application/vnd.github+json"   -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/A{REPO_NAME}/actions/runs?sort=created&direction=desc&per_page=25"|grep  -E '"id": [0-9]{{10}}'| sort -r -u| awk '{{print $2}}'|sed -e  's/,//g' |while read x
 do
 curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runs/$x/jobs
 done | grep -e queued -e running |wc -l)
+echo "Because we are not in ephemeral mode, we should wait a second to see if another job gets assigned to this server"
+sleep 1
+IS_BUSY=$(curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://github.com | jq '.busy')
+
 #export CNT=$(/home/azureuser/bin/aws ec2 describe-instance-status --instance-ids $(/home/azureuser/bin/aws ec2 describe-instances --filters "Name=tag:runner,Values=*" --query 'Reservations[].Instances[].InstanceId' --output text) --filters Name=instance-state-name,Values=running,pending --query "length(InstanceStatuses[?InstanceStatus.Status!='ok' || SystemStatus.Status!='ok'])")
 #CNT=1
-if  (( $QUEUED == 0 )) ; then
-    echo "Server count $CNT is greater than jobs on the queue $QUEUED or QUEUED = 0 or CNT >= 1, shutting down now"
+if  [ "$IS_BUSY" = "false" ] ; then
+    echo "Server did not get another job assigned, thus must not be needed. Shutting down now!"
     #TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
     #INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/instance-id)
     #REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/placement/region)
@@ -261,7 +268,7 @@ if  (( $QUEUED == 0 )) ; then
     curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
     exit 0
 else
-  echo "Keeping runners ($CNT) for jobs queued ($QUEUED). Not ending life-cycle, will let next job do it."
+  echo "Keeping runner as it is in use. Not ending life-cycle, will let next job do it."
 fi
 EOF
 # Comment out the below line to NOT terminate instance after running a job
@@ -271,7 +278,7 @@ chown -R azureuser:azureuser /home/azureuser
 
 # List workflow runs for a repo
 RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
-
+# Checking queue (only) as this VM definitely not 'busy' yet
 # Use awk to parse the json and count runs
 # It looks for "status" key and counts if it is "queued"
 PENDING_COUNT=$(echo "$RESPONSE" | awk -F'[,:"]' '
