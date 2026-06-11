@@ -249,9 +249,10 @@ ln -s /usr/bin/python3 /usr/bin/python
 cat <<'EOF' > /home/azureuser/actions-runner/bin/complete_lifecycle.sh
 trap 'exit 0' TERM
 #export QUEUED=$(curl -s -L   -H "Accept: application/vnd.github+json"   -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/A{REPO_NAME}/actions/runs?sort=created&direction=desc&per_page=25"|grep  -E '"id": [0-9]{{10}}'| sort -r -u| awk '{{print $2}}'|sed -e  's/,//g' |while read x
-do
-curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runs/$x/jobs
-done | grep -e queued -e running |wc -l)
+#export QUEUED=$(curl -s -L   -H "Accept: application/vnd.github+json"   -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28"  "https://api.github.com/repos/A{REPO_NAME}/actions/runs?sort=created&direction=desc&per_page=25"|grep  -E '"id": [0-9]{{10}}'| sort -r -u| awk ' {{print $2}}'|sed -e  's/,//g' |while read x
+#do
+#curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runs/$x/jobs
+#done | grep -e queued -e running |wc -l)
 echo "Because we are not in ephemeral mode, we should wait a second to see if another job gets assigned to this server"
 sleep 1
 IS_BUSY=$(curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://github.com | jq '.busy')
