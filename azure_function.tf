@@ -253,8 +253,8 @@ trap 'exit 0' TERM
 #do
 #curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runs/$x/jobs
 #done | grep -e queued -e running |wc -l)
-echo "Because we are not in ephemeral mode, we should wait a second to see if another job gets assigned to this server"
-sleep 1
+echo "Because we are not in ephemeral mode, we should wait a few sseconds to see if another job gets assigned to this server"
+sleep 5
 RUNNERS=$(curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28"  https://api.github.com/repos/{REPO_NAME}/actions/runners)
 IS_BUSY=$(echo "$RUNNERS" | jq -r --arg NAME "tlc-{MKT_OPT}-runner-{SUFFIX}" '.runners[] | select(.name == $NAME) | .busy')
 #export CNT=$(/home/azureuser/bin/aws ec2 describe-instance-status --instance-ids $(/home/azureuser/bin/aws ec2 describe-instances --filters "Name=tag:runner,Values=*" --query 'Reservations[].Instances[].InstanceId' --output text) --filters Name=instance-state-name,Values=running,pending --query "length(InstanceStatuses[?InstanceStatus.Status!='ok' || SystemStatus.Status!='ok'])")
