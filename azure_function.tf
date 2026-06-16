@@ -185,6 +185,7 @@ resource "local_file" "azure_function" {
 
 import asyncio
 import base64
+import binascii
 import urllib3
 import hmac
 import hashlib
@@ -194,6 +195,7 @@ import functools
 import jwt
 import logging
 import os
+import sys
 import time
 import azure.functions as func
 from azure.identity import DefaultAzureCredential
@@ -308,6 +310,24 @@ sudo -u azureuser bash -c "cd /home/azureuser/actions-runner/ && ./config.sh --u
 nohup sudo -u azureuser bash -c 'cd /home/azureuser/actions-runner && ./run.sh' &
 """
 
+
+def is_valid_base64(encoded_str):
+    """
+    Checks if a string is a valid Base64 encoded string. If ok, then we can see if it decoded ok below
+    """
+    # Base64 strings must be a multiple of 4 in length
+    # Add standard '=' padding if it's missing
+    missing_padding = len(encoded_str) % 4
+    if missing_padding:
+        encoded_str += '=' * (4 - missing_padding)
+
+    try:
+        # Validate = True strictly checks for non-Base64 characters
+        base64.b64decode(encoded_str, validate=True)
+        return True
+    except (binascii.Error, ValueError, TypeError):
+        return False
+
 def verify_signature(body: bytes, header_signature: str) -> bool:
     secret = JWT_SECRET
     if not secret or not header_signature:
@@ -336,11 +356,23 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
       return func.HttpResponse("Unauthorized", status_code=401)
 
     """
-        If we are here, the sha256 hash signature is good!
+        If we are here, the sha256 hash signature is good! Now check to see if userdata is good.
     """
     global USERDATA
     # encode user-data
     USERDATA = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
+    
+    if is_valid_base64(USERDATA):
+    # Decode and convert the bytes back to a UTF-8 string
+      decoded_bytes = base64.b64decode(USERDATA)
+      decoded_text = decoded_bytes.decode('utf-8')
+    # This is hard-coded to ensure valid bash at beginning of file
+      if decoded_text.startswith("#!/bin/bash"):
+        print("File starts with #!/bin/bash!")
+        print(f"Decoded successfully: {decoded_text}")
+      else:
+        print(f"Decode failed: {decoded_text}")
+        return func.HttpResponse("UserData did not decode and/or #!/bin/bash is missing from the first line. \nAzure may need a minute or two before providing another properly configured VM.", status_code=429)
     
     # Use DefaultAzureCredential to authenticate via Managed Identity
     credential = DefaultAzureCredential(additionally_allowed_tenants=["*"])
