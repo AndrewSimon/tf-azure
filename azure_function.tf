@@ -248,25 +248,22 @@ ln -s /usr/bin/python3 /usr/bin/python
 # the queue: if more jobs than runners, do not terminate
 cat <<'EOF' > /home/azureuser/actions-runner/bin/complete_lifecycle.sh
 trap 'exit 0' TERM
-export QUEUED=$(curl -s -L   -H "Accept: application/vnd.github+json"   -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/A{REPO_NAME}/actions/runs?sort=created&direction=desc&per_page=25"|grep  -E '"id": [0-9]{{10}}'| sort -r -u| awk '{{print $2}}'|sed -e  's/,//g' |while read x
-do
-curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runs/$x/jobs
-done | grep -e queued -e running |wc -l)
-echo "Because we are not in ephemeral mode, we should wait a few sseconds to see if another job gets assigned to this server"
-sleep 5
-RUNNERS=$(curl -s -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28"  https://api.github.com/repos/{REPO_NAME}/actions/runners)
-IS_BUSY=$(echo "$RUNNERS" | jq -r --arg NAME "tlc-{MKT_OPT}-runner-{SUFFIX}" '.runners[] | select(.name == $NAME) | .busy')
-#export CNT=$(/home/azureuser/bin/aws ec2 describe-instance-status --instance-ids $(/home/azureuser/bin/aws ec2 describe-instances --filters "Name=tag:runner,Values=*" --query 'Reservations[].Instances[].InstanceId' --output text) --filters Name=instance-state-name,Values=running,pending --query "length(InstanceStatuses[?InstanceStatus.Status!='ok' || SystemStatus.Status!='ok'])")
-#CNT=1
-if  [ "$IS_BUSY" = "false" ] || (( QUEUED == 0 )) ; then
-    echo "No new job assigned, or no more jobs on the queue, thus runner must not be needed. Shutting down now!"
-    #TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-    #INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/instance-id)
-    #REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/placement/region)
-    #/home/azureuser/bin/aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $REGION
-    TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
-    curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
-    exit 0
+RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
+PENDING_COUNT=$(echo "$RESPONSE" | awk -F'[,:"]' '
+    /"status":/ {{
+        if ($5 == "queued") {{
+            count++
+        }}
+    }}
+    END {{ print count+0 }}
+')
+echo "Number of pending jobs: $PENDING_COUNT"
+if (( $PENDING_COUNT == 0 )) ; then
+  echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
+  sleep 5
+  TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
+  curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
+  exit 0
 else
   echo "This runner just got another job assigned! Keeping runner! Not ending life-cycle, will let next job do it."
 fi
