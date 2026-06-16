@@ -68,7 +68,7 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   storage_access_key          = azurerm_storage_account.demo.primary_access_key
   storage_container_type      = "blobContainer"
   # Critical Flex Consumption Settings
-  maximum_instance_count = 2
+  maximum_instance_count = 1
   instance_memory_in_mb  = 512
 
   # The function.zip created later is deployed here 
