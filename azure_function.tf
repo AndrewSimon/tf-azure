@@ -98,6 +98,8 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 
   app_settings = {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = azuread_application_password.function_auth_secret.value
+    "WEBSITE_LOCAL_CACHE_OPTION" = "Never"
+    "WEBSITE_FUNCTIONS_ARMCACHE_ENABLED" = "0"
   }
   
   always_ready {
