@@ -201,6 +201,7 @@ import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
+from azure.mgmt.compute.models import VirtualMachinePriorityTypes, VirtualMachineEvictionPolicyTypes, BillingProfile
 
 # Create suffix to use for device/resource names
 current_time = time.time()        
@@ -216,7 +217,7 @@ VM_SIZE = "${var.vm_size}"
 GH_PAT = '${var.token}'
 REPO_NAME = '${var.repo_name}'
 ADMIN_PASS = "${var.adminpass}"
-MKT_OPT = "dynamic"
+MKT_OPT = '${var.mkt_opt}'
 REGION = "${var.location}"
 NAME = "Github-runner-"
 NIC_BNAME = "GH-runner-nic-"
@@ -426,6 +427,10 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         }
       },
         "properties": {
+        "billingProfile": {
+          "maxPrice": -1 # -1 indicates the VM will be billed at the current price of a Spot VM
+        },
+        "evictionPolicy": "Delete",
         "userData": USERDATA,
         "storageProfile": {
             "osDisk": {
@@ -456,6 +461,9 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         }
       }
    }
+    if MKT_OPT.lower() == 'spot':
+      vm_parameters['properties']['priority'] = VirtualMachinePriorityTypes.spot
+      
     try:
       print(f"Creating VM with public IP: {VM_NAME}")
       poller = compute_client.virtual_machines.begin_create_or_update(

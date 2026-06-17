@@ -53,6 +53,11 @@ description = "Size of the VM we will deploy dynamically"
   type        = string
   default     = "Standard_D2s_v3"
 }
+variable "mkt_opt" {
+description = "Regular pricing unless you specify 'spot'"
+  type        = string
+  default     = "spot"
+}
 variable "function_code" {
 description = "Name of the python function (code), not the app that runs it"
   type        = string
