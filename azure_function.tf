@@ -68,7 +68,7 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   storage_access_key          = azurerm_storage_account.demo.primary_access_key
   storage_container_type      = "blobContainer"
   # Critical Flex Consumption Settings
-  maximum_instance_count = 1
+  maximum_instance_count = 2
   instance_memory_in_mb  = 512
 
   # The function.zip created later is deployed here 
@@ -98,8 +98,8 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 
   app_settings = {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = azuread_application_password.function_auth_secret.value
-    "WEBSITE_LOCAL_CACHE_OPTION" = "Never"
-    "WEBSITE_FUNCTIONS_ARMCACHE_ENABLED" = "0"
+#    "WEBSITE_LOCAL_CACHE_OPTION" = "Never"
+#    "WEBSITE_FUNCTIONS_ARMCACHE_ENABLED" = "0"
   }
   
   always_ready {
