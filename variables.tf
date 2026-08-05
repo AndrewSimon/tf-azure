@@ -5,7 +5,7 @@ variable "msi_id" {
 }
 variable "adminpass" {
   type        = string
-  description = "Never commit real passwords to a repo"
+  description = "VM and DB admin password. Never commit real passwords to a repo"
   default     = ""
 }
 variable "webhook" {
@@ -44,14 +44,25 @@ description = "storage container that contains function code"
   default     = "function-code"
 }
 variable "location" {
-description = "Location of the VM we will deploy dynamically"
+description = "Location of the resources to deploy"
   type        = string
-  default     = "eastus"
+  default     = "eastus2"
 }
 variable "vm_size" {
 description = "Size of the VM we will deploy dynamically"
   type        = string
   default     = "Standard_D2s_v3"
+}
+variable "sku_name" {
+description = "Size of the DB compute"
+  type        = string
+#  default     = "GP_Standard_D2s_v3" # Good for prod - supports replicas too
+  default     = "B_Standard_B1ms" # Good for Dev/Test - does not support replica
+}
+variable "storage_mb" {
+description = "Size of the DB storage"
+  type        = string
+  default     = "32768"
 }
 variable "mkt_opt" {
 description = "Regular pricing unless you specify 'spot'"
