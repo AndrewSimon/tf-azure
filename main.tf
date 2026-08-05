@@ -52,6 +52,8 @@ data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
 }
 
+data "http" "client_ip" { url = "https://ipv4.icanhazip.com" }
+
 resource "time_static" "sas" {}
 
 output "location" {
@@ -231,6 +233,7 @@ resource "random_password" "password" {
 locals { 
   repo  = basename(var.repo_name)
   owner = dirname(var.repo_name)
+  my_ip = chomp(data.http.client_ip.response_body)
 }
 
 # Create a repository secret (aka webhook secret)

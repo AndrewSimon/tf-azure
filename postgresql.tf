@@ -44,3 +44,10 @@ output "rep_db_fqdn" {
   value       = azurerm_postgresql_flexible_server.replica[*].fqdn
   description = "The FQDN of the PostgreSQL Flexible Server."
 }
+
+resource "azurerm_postgresql_flexible_server_firewall_rule" "demo" {
+  name             = "my-local-ip"
+  start_ip_address = local.my_ip
+  end_ip_address   = local.my_ip
+  server_id        = azurerm_postgresql_flexible_server.primary.id
+}
