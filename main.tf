@@ -3,7 +3,7 @@ terraform {
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      version = "~> 4.0"
+      version = "~> 4.5"
     }
     azuread = {
       source = "hashicorp/azuread"
@@ -42,6 +42,8 @@ data "azurerm_client_config" "current" {}
 
 data "azuread_client_config" "current" {}
 
+data "azurerm_location" "current" { location = var.location }
+
 data "azuread_user" "current_user" {
   object_id = data.azuread_client_config.current.object_id
 }
@@ -50,8 +52,13 @@ data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
 }
 
+data "http" "client_ip" { url = "https://ipv4.icanhazip.com" }
+
 resource "time_static" "sas" {}
 
+output "location" {
+  value = data.azurerm_location.current.display_name 
+}
 output "subscription_id" {
   value = data.azurerm_client_config.current.subscription_id
 }
@@ -59,7 +66,7 @@ output "subscription_id" {
 # Resources: RG, VNet, Subnet, PIP, NSG, NIC, VM
 resource "azurerm_resource_group" "demo" {
   name     = "DemoResourceGroup"
-  location = "East US"
+  location = data.azurerm_location.current.display_name
 }
 
 # Create a storage account for the apps, not terraform state
@@ -226,6 +233,7 @@ resource "random_password" "password" {
 locals { 
   repo  = basename(var.repo_name)
   owner = dirname(var.repo_name)
+  my_ip = chomp(data.http.client_ip.response_body)
 }
 
 # Create a repository secret (aka webhook secret)
