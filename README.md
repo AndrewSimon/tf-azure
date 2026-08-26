@@ -110,7 +110,7 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 
 ## Trouble-shooting
     
-   1. If 'no file exists at ./function_app.py' or 'fiile not found': run 'touch function_app.py' then re-run 'terraform apply/destroy'.  
+   1. If 'no file exists at ./function_app.py' or 'file not found': run 'touch function_app.py' then re-run 'terraform apply/destroy'.  
    2. I file is 'inconsistent' or Function app is created but not the function: re-run terraform apply.
    3. The upload function runs but there is still no function in the function app:  check for missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.
    4. Still no Azure Function and/or upload fails even though there are no errors in the function when running locally: delete the Function App manually through UI, run number 7 from above, <i>terraform destroy -target=terraform_data.upload_function</i>, then re-run terraform apply.
