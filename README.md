@@ -72,7 +72,7 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 
 1. After installing above requirements, clone this repo.
 2. cd tf-azure, edit main.tf --> change 'storage_account_name = "your_unique_storage_account_name"
-3. Edit variables.tf --> change values to match your conventions and environment 
+3. Edit variables.tf --> change values such as database name, function name, and skus to match your conventions and environment 
 
 ## Log into Azure via AzureCli
 > az login
@@ -94,6 +94,12 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 
 Note: due to Azure vault design, destroying vault purges secrets, which awaits a 10 minute timeout. It will complete normally but if you do not want to wait, CTL+C to exit, then, re-run terraform destroy to remove remaining resources. The terraform backend storage account you created by hand will not be destroyed.
 --> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
+
+
+## Postgresql
+>By default the public IP option is enabled, but only your PC (e.g. the PC running terraform) gets firewall access without additional coding.  Login example, enter password when prompted:
+
+ psql -h tlc-db-primary.postgres.database.azure.com -U "psqladmin" -d postgres -W
 
 ## Trouble-shooting
     

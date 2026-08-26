@@ -1,6 +1,6 @@
 # Primary server (already exists or created here)
 resource "azurerm_postgresql_flexible_server" "primary" {
-name = "primary-psql-server"
+name = local.pri_db
 resource_group_name = azurerm_resource_group.demo.name
 location = azurerm_resource_group.demo.location
 # location = "eastus2"
@@ -29,7 +29,7 @@ lifecycle {
 resource "azurerm_postgresql_flexible_server" "replica" {
 # If first byte of sku_name is 'B', it's burstable and doesn't support replicas
 count = substr(var.sku_name, 0, 1) == "B" ? 0 : 1
-name = "replica-psql-server"
+name = local.replica
 resource_group_name = azurerm_resource_group.demo.name
 location = azurerm_resource_group.demo.location
 create_mode = "Replica"

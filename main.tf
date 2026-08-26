@@ -234,6 +234,8 @@ locals {
   repo  = basename(var.repo_name)
   owner = dirname(var.repo_name)
   my_ip = chomp(data.http.client_ip.response_body)
+  pri_db = "${var.db_name}--primary"
+  replica = "${var.db_name}-replica"
 }
 
 # Create a repository secret (aka webhook secret)

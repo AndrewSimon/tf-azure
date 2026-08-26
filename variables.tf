@@ -84,3 +84,8 @@ variable "static_option" {
   ## 1 = yes, I want static vm resources too, 0 = no, thank you
   default   = false
 }
+variable "db_name" {
+  description = "Database name: terraform will convert to primary and replica db names"
+  type      = string
+  default   = "tlc-db"
+}
