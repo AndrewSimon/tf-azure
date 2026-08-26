@@ -29,7 +29,7 @@ description = "Manimum number of running instances allowed by lambda_handler. Ke
   default     = "1"
 }
 variable "token" {
-description = "Github PAT - never commit tokens. Use cmd line option -var=gh_token=mytoken"
+description = "Github PAT - never commit tokens. Use cmd line option -var=token=mytoken"
   type        = string
   default     = ""
 }

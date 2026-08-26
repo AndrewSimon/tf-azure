@@ -71,19 +71,10 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   maximum_instance_count = 2
   instance_memory_in_mb  = 512
 
-  # The function.zip created later is deployed here 
-#  zip_deploy_file = "${path.module}/function.zip"
-  
   # Runtime specific configuration
   runtime_name        = "python"
   runtime_version     = "3.13"
 
-#Necessary because the function upload and create can take a very long time
-#  timeouts {
-#    create = "90m"
-#    update = "90m"
-#    delete = "90m"
-#  }
   auth_settings_v2 {
     auth_enabled           = true
     unauthenticated_action = "AllowAnonymous" # Not as safe but we have web secret and CORS too
@@ -106,15 +97,6 @@ resource "azurerm_function_app_flex_consumption" "demo" {
     name  = "http" 
     instance_count = 1 # Set to 1 or higher to enable Always Ready
   }
- # app_settings = {
-    # Required for remote builds (Python/Node) -> conficts with WEBSITE_RUN_FROM_PACKAGE = 1
-#    "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
-#    "ENABLE_ORYX_BUILD"              = "true"
-#    "DEPLOYMENT_SOURCE_HASH" = filebase64sha256(data.archive_file.function_zip.output_path)
-    # Standard setting for zip deployment - Consumption plan only accepts URL
-    #"WEBSITE_RUN_FROM_PACKAGE" = "1"
-#    "WEBSITE_RUN_FROM_PACKAGE" = "${azurerm_storage_blob.storage_blob_function.url}${data.azurerm_storage_account_blob_container_sas.sas.sas}"
-#  }
 
   site_config {
     # CORS (CORS applies to browsers, mostly)
@@ -168,14 +150,6 @@ resource "terraform_data" "upload_function" {
     azurerm_function_app_flex_consumption.demo
   ]
 }
-
-#resource "terraform_data" "bootstrap" {
-##  triggers_replace = [azurerm_function_app_flex_consumption.demo]
-#  provisioner "local-exec" {
-#    command = ""
-#  }
-#}
-
 
 ## The azyre function python code is inline code within terraform
 resource "local_file" "azure_function" {
@@ -410,10 +384,6 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
             "properties": {
               "subnet": {"id": SUBNET_ID},
             }
-#            "public_ip_address": {
-#              "id": ip_result.id,
-#              "delete_option": "Delete"
-#              },
           }],
         "NetworkSecurityGroup": {"id": NSG_ID}
         }
@@ -481,43 +451,6 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
 }
-
-# Data source to create the deployment package (ZIP file)
-#data "archive_file" "function_zip" {
-#  type        = "zip"
-# List files individually
-#  source {
-#    content  = file("${path.module}/host.json")
-#    filename = "host.json"
-#  }
-#  source {
-#    content  = file("${path.module}/function_app.py")
-#    filename = "function_app.py"
-#  }
-#  source {
-#    content  = file("${path.module}/requirements.txt")
-#    filename = "requirements.txt"
-#  }
-#  output_path = "function.zip"
-#  depends_on = [
-#    local_file.azure_function
-#  ]
-#}
-
-# upload the zipped file to the container
-#resource "azurerm_storage_blob" "storage_blob_function" {
-#  name                   = "function.zip" # name of the blob in the contianer
-#  source                 = "./function.zip" # path to the zip file
-#  content_md5            = filemd5("./function.zip") # check if the zip file has changed
-#  storage_account_name   = "${var.storage_account}"
-#  storage_container_name = "${var.storage_container}"
-#  type                   = "Block"
-#  depends_on = [
-#    azurerm_storage_account.demo,
-#    local_file.azure_function,
-#    data.archive_file.function_zip
-#  ]
-#}
 
 # Create the Log Analytics Workspace
 resource "azurerm_log_analytics_workspace" "demo" {
