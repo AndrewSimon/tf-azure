@@ -56,8 +56,8 @@ description = "Size of the VM we will deploy dynamically"
 variable "sku_name" {
 description = "Size of the DB compute"
   type        = string
-#  default     = "GP_Standard_D2s_v3" # Good for prod - supports replicas too
-  default     = "B_Standard_B1ms" # Good for Dev/Test - does not support replica
+#  default     = "GP_Standard_D2s_v3" # Good for prod - replica will be created too
+  default     = "B_Standard_B1ms" # B_  prevents replicas, which is our default
 }
 variable "storage_mb" {
 description = "Size of the DB storage"
@@ -85,7 +85,7 @@ variable "static_option" {
   default   = false
 }
 variable "db_name" {
-  description = "Database name: terraform will convert to primary and replica db names"
+  description = "PSQLDB name: terraform converts to pri and replica db names, or skips if blank"
   type      = string
-  default   = "tlc-db"
+  default   = "" # Or a unique string like "tlc-db" to create a db pri and replica
 }

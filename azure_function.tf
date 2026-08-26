@@ -119,7 +119,7 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   site_config {
     # CORS (CORS applies to browsers, mostly)
     cors {
-      allowed_origins = ["https://azure.com","https://github.com","https://api.github.com"]
+      allowed_origins = ["https://portal.azure.com","https://azure.com","https://github.com","https://api.github.com"]
     }
     # HTTP 2.0 (Optional)
     http2_enabled = true
@@ -360,8 +360,9 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         If we are here, the sha256 hash signature is good! Now check to see if userdata is good.
     """
     global USERDATA
-    # encode user-data
-    USERDATA = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
+    # encode user-data - convert to utf-8 first then use b64encode
+    USERDATA8 = USERDATA.encode('utf-8')
+    USERDATA = base64.b64encode(USERDATA8).decode('utf-8')
     
     if is_valid_base64(USERDATA):
     # Decode and convert the bytes back to a UTF-8 string
@@ -403,15 +404,19 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
       NIC_NAME,
       {
         "location": LOCATION,
+        "properties": {
         "ipConfigurations": [{
             "name": "internal",
-            "subnet": {"id": SUBNET_ID},
+            "properties": {
+              "subnet": {"id": SUBNET_ID},
+            }
 #            "public_ip_address": {
 #              "id": ip_result.id,
 #              "delete_option": "Delete"
 #              },
           }],
-        "network_security_group": {"id": NSG_ID}
+        "NetworkSecurityGroup": {"id": NSG_ID}
+        }
       }
     )
 ## We don't need nic result as that value is derived below

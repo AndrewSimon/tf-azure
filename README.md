@@ -100,6 +100,13 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 >By default the public IP option is enabled, but only your PC (e.g. the PC running terraform) gets firewall access without additional coding.  Login example, enter password when prompted:
 
  psql -h tlc-db-primary.postgres.database.azure.com -U "psqladmin" -d postgres -W
+ 
+ 
+## Post Python steps
+>Once able to build python and run successfully in your Azure Core API Tools environment locally, give a detailed update to requirements.txt. Though not strictly necessary, Azure Functions can fail with module version mismatches.
+
+1. pip freeze > requirements.txt
+2. Edit requirements.txt and remove all local path requirements, leave only entries that have the module name and version (only), like <b>urllib3==1.26.20</b>
 
 ## Trouble-shooting
     

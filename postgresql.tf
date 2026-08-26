@@ -1,5 +1,6 @@
-# Primary server (already exists or created here)
 resource "azurerm_postgresql_flexible_server" "primary" {
+# If the db_name string is empty, skip resource
+count = var.db_name == "" ? 0 : 1
 name = local.pri_db
 resource_group_name = azurerm_resource_group.demo.name
 location = azurerm_resource_group.demo.location
@@ -33,11 +34,11 @@ name = local.replica
 resource_group_name = azurerm_resource_group.demo.name
 location = azurerm_resource_group.demo.location
 create_mode = "Replica"
-source_server_id = azurerm_postgresql_flexible_server.primary.id
+source_server_id = azurerm_postgresql_flexible_server.primary[0].id
 }
 
 output "pri_db_fqdn" {
-  value       = azurerm_postgresql_flexible_server.primary.fqdn
+  value       = azurerm_postgresql_flexible_server.primary[*].fqdn
   description = "The FQDN of the PostgreSQL Flexible Server."
 }
 output "rep_db_fqdn" {
@@ -46,8 +47,9 @@ output "rep_db_fqdn" {
 }
 
 resource "azurerm_postgresql_flexible_server_firewall_rule" "demo" {
+  count = var.db_name == "" ? 0 : 1
   name             = "my-local-ip"
   start_ip_address = local.my_ip
   end_ip_address   = local.my_ip
-  server_id        = azurerm_postgresql_flexible_server.primary.id
+  server_id        = azurerm_postgresql_flexible_server.primary[*].id
 }
