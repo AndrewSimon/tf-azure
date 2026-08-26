@@ -276,8 +276,6 @@ fi
 
 # Configure runner and connect to server
 export DEFAULT_MAX=1
-#TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-#export SUFFIX=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/local-ipv4|awk -F. '{{print $4}}')
 TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
 export RUNNER_TOKEN=$(curl -s -L -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runners/registration-token| grep token|awk -F\\" '{{print $4}}')
 sudo -u azureuser bash -c "cd /home/azureuser/actions-runner && ./config.sh remove --token $RUNNER_TOKEN"
@@ -348,7 +346,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
         print(f"Decoded successfully: {decoded_text}")
       else:
         print(f"Decode failed: {decoded_text}")
-        return func.HttpResponse("UserData did not decode and/or #!/bin/bash is missing from the first line. \nAzure may need a minute or two before providing another properly configured VM.", status_code=429)
+#        return func.HttpResponse("UserData did not decode and/or #!/bin/bash is missing from the first line. \nAzure may need a minute or two before providing another properly configured VM.", status_code=429)
     
     # Use DefaultAzureCredential to authenticate via Managed Identity
     credential = DefaultAzureCredential(additionally_allowed_tenants=["*"])
