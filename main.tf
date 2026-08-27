@@ -1,12 +1,17 @@
 terraform {
+  required_version = ">= 1.13.1"
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 4.5"
     }
+    azuread = {
+      source = "hashicorp/azuread"
+      version = "~> 3.0"
+     }
     github = {
       source  = "integrations/github"
-      version = "~> 6.0"
+      version = "~> 6.8.3"
     }
     azuresql = {
       source  = "jonascrevecoeur/azuresql"
@@ -21,13 +26,62 @@ terraform {
 }
 
 provider "azurerm" {
- features {} 
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  } 
+}
+
+provider "github" {
+  owner = "${local.owner}"  # The target GitHub organization or user account [7]
+  token = "${var.token}"
+}
+# Get user and subscription information
+data "azurerm_client_config" "current" {}
+
+data "azuread_client_config" "current" {}
+
+data "azurerm_location" "current" { location = var.location }
+
+data "azuread_user" "current_user" {
+  object_id = data.azuread_client_config.current.object_id
+}
+
+data "azurerm_role_definition" "vm_contributor" {
+  name = "Virtual Machine Contributor"
+}
+
+data "http" "client_ip" { url = "https://ipv4.icanhazip.com" }
+
+resource "time_static" "sas" {}
+
+output "location" {
+  value = data.azurerm_location.current.display_name 
+}
+output "subscription_id" {
+  value = data.azurerm_client_config.current.subscription_id
 }
 
 # Resources: RG, VNet, Subnet, PIP, NSG, NIC, VM
 resource "azurerm_resource_group" "demo" {
   name     = "DemoResourceGroup"
-  location = "East US"
+  location = data.azurerm_location.current.display_name
+}
+
+# Create a storage account for the apps, not terraform state
+resource "azurerm_storage_account" "demo" {
+  name                     = "${var.storage_account}"
+  resource_group_name      = azurerm_resource_group.demo.name
+  location                 = azurerm_resource_group.demo.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_storage_container" "function_code_container" {
+  name                  = "${var.storage_container}"
+  storage_account_id  = azurerm_storage_account.demo.id
+  container_access_type = "blob"
 }
 
 resource "azurerm_virtual_network" "demo" {
@@ -55,6 +109,7 @@ resource "azurerm_subnet" "private" {
 }
 
 resource "azurerm_public_ip" "demo_ip" {
+  count = var.static_option ? 1 : 0
   name                = "DemoPublicIP"
   location            = azurerm_resource_group.demo.location
   resource_group_name = azurerm_resource_group.demo.name
@@ -101,6 +156,7 @@ resource "azurerm_network_security_group" "private" {
 }
 
 resource "azurerm_network_interface" "eth0" {
+  count               = var.static_option ? 1 : 0
   name                = "TLC_Primary_Interface"
   location            = azurerm_resource_group.demo.location
   resource_group_name = azurerm_resource_group.demo.name
@@ -109,28 +165,47 @@ resource "azurerm_network_interface" "eth0" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.public.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.demo_ip.id
+    public_ip_address_id          = azurerm_public_ip.demo_ip[0].id
   }
 }
 
 resource "azurerm_network_interface_security_group_association" "sg_assoc" {
-  network_interface_id      = azurerm_network_interface.eth0.id
+  count                     = var.static_option ? 1 : 0
+  network_interface_id      = azurerm_network_interface.eth0[0].id
   network_security_group_id = azurerm_network_security_group.public.id
 }
 
+# Assign the vm_contributor role to the Service Principal at the Resource Group scope
+#resource "azurerm_role_assignment" "sp_vm_contributor" {
+#  scope                = azurerm_resource_group.demo.id
+#  role_definition_id   = data.azurerm_role_definition.vm_contributor.id
+#  principal_id         = data.azuread_client_config.current.object_id 
+#}
+
+# CREATE THE USER-ASSIGNED MANAGED IDENTITY (Executed Prior to Dynamic VMs)
+resource "azurerm_user_assigned_identity" "vm_identity" {
+  name                = "uami-vm-contributor"
+  location            = azurerm_resource_group.demo.location
+  resource_group_name = azurerm_resource_group.demo.name
+}
+
+resource "azurerm_role_assignment" "vm_role" {
+  scope                = azurerm_resource_group.demo.id
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_user_assigned_identity.vm_identity.principal_id
+}
+## We launch dynamic VMs via Azure Function App similar to this static VM
 resource "azurerm_linux_virtual_machine" "tlc_vm" {
+  count = var.static_option ? 1 : 0
   name                = "TLC"
   location            = azurerm_resource_group.demo.location
   resource_group_name = azurerm_resource_group.demo.name
-  size                = "Standard_DC1s_v3"
-  admin_username      = "adminuser"
-  network_interface_ids = [azurerm_network_interface.eth0.id]
-  disable_password_authentication = true
-
-  admin_ssh_key {
-    username = "adminuser"
-    public_key = file("~/.ssh/authorized_keys")
-  }
+  size                = var.vm_size
+  admin_username      = "adminuser" # Linux is azureuser - this is for MSSQL
+  admin_password      = var.adminpass
+  disable_password_authentication = false
+  
+  network_interface_ids = [azurerm_network_interface.eth0[0].id]
 
   os_disk {
     name                 = "TLC-demo-hdd1"
@@ -143,9 +218,48 @@ resource "azurerm_linux_virtual_machine" "tlc_vm" {
     offer     = "0001-com-ubuntu-server-jammy"
     sku       = "22_04-lts-gen2"
     version   = "latest"
-  }
+  
+  }  
 }
 
+# Create random password to be stored
+resource "random_password" "password" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+# Parse repo_name to get repo without account
+locals { 
+  repo  = basename(var.repo_name)
+  owner = dirname(var.repo_name)
+  my_ip = chomp(data.http.client_ip.response_body)
+  pri_db = "${var.db_name}--primary"
+  replica = "${var.db_name}-replica"
+}
+
+# Create a repository secret (aka webhook secret)
+resource "github_actions_secret" "webhook_secret" {
+  repository      = "${local.repo}"
+  secret_name     = "WEBHOOK_SECRET_TOKEN"
+  plaintext_value = "${random_password.password.result}"
+  depends_on = [
+    random_password.password
+  ]
+  lifecycle {
+    ignore_changes = [
+      ## To change password, run terraform destroy azurerm_key_vault_secret.adminpass first
+      plaintext_value
+    ]
+  }
+}
+#data "github_actions_registration_token" "dynamic_runner" {
+#  repository = "${local.repo}"
+#}
+
 output "public_ip_address" {
-  value = azurerm_public_ip.demo_ip.ip_address
+  value = one(azurerm_public_ip.demo_ip[*].ip_address)
+}
+output "current_user_principal_name" {
+  value = data.azuread_user.current_user.user_principal_name
 }

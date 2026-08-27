@@ -1,9 +1,12 @@
-
-
-data "azurerm_client_config" "current" {}
-
 locals {
   current_user_id = coalesce(var.msi_id, data.azurerm_client_config.current.object_id)
+}
+
+# Generate random password (.result, not .value)
+resource "random_password" "webhook" {
+length = 16
+special = true
+override_special = "_%@"
 }
 
 resource "azurerm_key_vault" "vault" {
@@ -41,6 +44,7 @@ resource "azurerm_key_vault_key" "key" {
   }
 }
 
+# Admin pass is for the ubuntu user account when creating static VM
 resource "azurerm_key_vault_secret" "adminpass" {
   name         = "admin-password"
   value        = var.adminpass
@@ -56,6 +60,38 @@ resource "azurerm_key_vault_secret" "adminpass" {
   }
 }
 
+# Github (PAT) token
+resource "azurerm_key_vault_secret" "token" {
+  name         = "github-token"
+  value        = var.token
+  key_vault_id = azurerm_key_vault.vault.id
+  depends_on = [
+    azurerm_key_vault.vault
+  ]
+  lifecycle {
+    ignore_changes = [
+      ## To change GH PAT, run terraform destroy azurerm_key_vault_secret.token first
+      value
+    ]
+  }
+}
+
+# Webhook secret needed to create a github actions wehbook
+resource "azurerm_key_vault_secret" "webhook" {
+  name         = "webhook-secret"
+  value        = random_password.webhook.result 
+  key_vault_id = azurerm_key_vault.vault.id
+  depends_on = [
+    azurerm_key_vault.vault,
+    random_password.webhook 
+  ]
+  lifecycle {
+    ignore_changes = [
+      ## To change webhook secret, run terraform destroy azurerm_key_vault_secret.webhooks first
+      value
+    ]
+  }
+}
 data "azurerm_key_vault" "vault" {
   name = "TLC-KeyVault"
   resource_group_name = azurerm_resource_group.demo.name
@@ -68,4 +104,13 @@ data "azurerm_key_vault_secret" "password" {
   depends_on = [ azurerm_key_vault_secret.adminpass ]
 }
 
-
+data "azurerm_key_vault_secret" "webhook" {
+  name = "webhook-secret"
+  key_vault_id = data.azurerm_key_vault.vault.id
+  depends_on = [ azurerm_key_vault_secret.webhook ]
+}
+data "azurerm_key_vault_secret" "token" {
+  name = "github-token"
+  key_vault_id = data.azurerm_key_vault.vault.id
+  depends_on = [ azurerm_key_vault_secret.token ]
+}
