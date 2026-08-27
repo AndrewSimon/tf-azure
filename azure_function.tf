@@ -209,78 +209,6 @@ IDENTITY_RESOURCE_ID = (
 )
 ## While the function is inline python code sourced by terraform, this inline 
 ## cloud-init user-data, also in terraform, is sourced by the python function
-USERDATA = f"""#!/bin/bash
-apt-get install jq -y
-# We can comment/remove install if GHR software is pre-installed on the vm image
-RUNNER_VERSION=$(curl -s https://github.com/actions/runner/tags|grep releases/tag/v|head -n1|awk -F">v" '{{print $2}}'|awk -F"</" '{{print ""$1}}')
-cd /home/azureuser
-mkdir -p actions-runner 2>/dev/null
-cd /home/azureuser/actions-runner
-curl -o actions-runner-linux-x64-$RUNNER_VERSION.tar.gz -L https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz
-tar xzf ./actions-runner-linux-x64-$RUNNER_VERSION.tar.gz && ./bin/installdependencies.sh
-ln -s /usr/bin/python3 /usr/bin/python
-
-# Runner hook to complete dynamically provisioned instance lifecycle.
-# Because there is a configurable maximum number of runners, first check
-# the queue: if more jobs than runners, do not terminate
-cat <<'EOF' > /home/azureuser/actions-runner/bin/complete_lifecycle.sh
-trap 'exit 0' TERM
-RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
-PENDING_COUNT=$(echo "$RESPONSE" | awk -F'[,:"]' '
-    /"status":/ {{
-        if ($5 == "queued") {{
-            count++
-        }}
-    }}
-    END {{ print count+0 }}
-')
-echo "Number of pending jobs: $PENDING_COUNT"
-if (( $PENDING_COUNT == 0 )) ; then
-  echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
-  sleep 5
-  TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
-  curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
-  exit 0
-else
-  echo "This runner just got another job assigned! Keeping runner! Not ending life-cycle, will let next job do it."
-fi
-EOF
-# Comment out the below line to NOT terminate instance after running a job
-echo ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/home/azureuser/actions-runner/bin/complete_lifecycle.sh >> /etc/environment
-chmod +x /home/azureuser/actions-runner/bin/complete_lifecycle.sh
-chown -R azureuser:azureuser /home/azureuser
-
-# List workflow runs for a repo
-RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
-# Checking queue (only) as this VM definitely not 'busy' yet
-# Use awk to parse the json and count runs
-# It looks for "status" key and counts if it is "queued"
-PENDING_COUNT=$(echo "$RESPONSE" | awk -F'[,:"]' '
-    /"status":/ {{
-        if ($5 == "queued") {{
-            count++
-        }}
-    }}
-    END {{ print count+0 }}
-')
-echo "Number of pending jobs: $PENDING_COUNT"
-if (( $PENDING_COUNT == 0 )) ; then
-  echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
-  sleep 5
-  TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
-  curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
-  exit 0
-fi
-
-# Configure runner and connect to server
-export DEFAULT_MAX=1
-TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
-export RUNNER_TOKEN=$(curl -s -L -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runners/registration-token| grep token|awk -F\\" '{{print $4}}')
-sudo -u azureuser bash -c "cd /home/azureuser/actions-runner && ./config.sh remove --token $RUNNER_TOKEN"
-sudo -u azureuser bash -c "cd /home/azureuser/actions-runner/ && ./config.sh --url https://github.com/{REPO_NAME} --token $RUNNER_TOKEN --unattended --replace --name tlc-{MKT_OPT}-runner-{SUFFIX}"
-nohup sudo -u azureuser bash -c 'cd /home/azureuser/actions-runner && ./run.sh' &
-"""
-
 
 def is_valid_base64(encoded_str):
     """
@@ -336,21 +264,93 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     IP_NAME = IP_BNAME + SUFFIX
     DISK_NAME = DISK_BNAME + SUFFIX
 
+    USERDATA = f"""#!/bin/bash
+    apt-get install jq -y
+    # We can comment/remove install if GHR software is pre-installed on the vm image
+    RUNNER_VERSION=$(curl -s https://github.com/actions/runner/tags|grep releases/tag/v|head -n1|awk -F">v" '{{print $2}}'|awk -F"</" '{{print ""$1}}')
+    cd /home/azureuser
+    mkdir -p actions-runner 2>/dev/null
+    cd /home/azureuser/actions-runner
+    curl -o actions-runner-linux-x64-$RUNNER_VERSION.tar.gz -L https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz
+    tar xzf ./actions-runner-linux-x64-$RUNNER_VERSION.tar.gz && ./bin/installdependencies.sh
+    ln -s /usr/bin/python3 /usr/bin/python 2>/dev/null
+
+    # Runner hook to complete dynamically provisioned instance lifecycle.
+    # Because there is a configurable maximum number of runners, first check
+    # the queue: if more jobs than runners, do not terminate
+    cat <<'EOF' > /home/azureuser/actions-runner/bin/complete_lifecycle.sh
+    trap 'exit 0' TERM
+    RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
+    PENDING_COUNT=$(echo "$RESPONSE" | awk -F'[,:"]' '
+      /"status":/ {{
+          if ($5 == "queued") {{
+              count++
+          }}
+        }}
+        END {{ print count+0 }}
+      ')
+    echo "Number of pending jobs: $PENDING_COUNT"
+    if (( $PENDING_COUNT == 0 )) ; then
+      echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
+      sleep 5
+      TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
+      curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
+      exit 0
+    else
+      echo "This runner just got another job assigned! Keeping runner! Not ending life-cycle, will let next job do it."
+    fi
+EOF
+    # Comment out the below line to NOT terminate instance after running a job
+    echo ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/home/azureuser/actions-runner/bin/complete_lifecycle.sh >> /etc/environment
+    chmod +x /home/azureuser/actions-runner/bin/complete_lifecycle.sh
+    chown -R azureuser:azureuser /home/azureuser
+
+    # List workflow runs for a repo
+    RESPONSE=$(curl -s -H "Authorization: token {GH_PAT}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/{REPO_NAME}/actions/runs")
+    # Checking queue (only) as this VM definitely not 'busy' yet
+    # Use awk to parse the json and count runs
+    # It looks for "status" key and counts if it is "queued"
+    PENDING_COUNT=$(echo "$RESPONSE" | awk -F'[,:"]' '
+        /"status":/ {{
+            if ($5 == "queued") {{
+                count++
+            }}
+        }}
+        END {{ print count+0 }}
+    ')
+    echo "Number of pending jobs: $PENDING_COUNT"
+    if (( $PENDING_COUNT == 0 )) ; then
+      echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
+      sleep 5
+      TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
+      curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
+      exit 0
+    fi
+
+    # Configure runner and connect to server
+    export DEFAULT_MAX=1
+    TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
+    export RUNNER_TOKEN=$(curl -s -L -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer {GH_PAT}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/{REPO_NAME}/actions/runners/registration-token| grep token|awk -F\\" '{{print $4}}')
+    sudo -u azureuser bash -c "cd /home/azureuser/actions-runner && ./config.sh remove --token $RUNNER_TOKEN"
+    sudo -u azureuser bash -c "cd /home/azureuser/actions-runner/ && ./config.sh --url https://github.com/{REPO_NAME} --token $RUNNER_TOKEN --unattended --replace --name tlc-{MKT_OPT}-runner-{SUFFIX}"
+    nohup sudo -u azureuser bash -c 'cd /home/azureuser/actions-runner && ./run.sh' &
+    """
+
     # encode user-data - convert to utf-8 first then use b64encode
-    USERDATA8 = USERDATA.encode('utf-8')
-    USERDATA = base64.b64encode(USERDATA8).decode('utf-8')
+    encoded_user_data = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
     
-    if is_valid_base64(USERDATA):
+    if is_valid_base64(encoded_user_data):
     # Decode and convert the bytes back to a UTF-8 string
-      decoded_bytes = base64.b64decode(USERDATA)
+      decoded_bytes = base64.b64decode(encoded_user_data)
       decoded_text = decoded_bytes.decode('utf-8')
     # This is hard-coded to ensure valid bash at beginning of file
       if decoded_text.startswith("#!/bin/bash"):
         print("File starts with #!/bin/bash!")
         print(f"Decoded successfully: {decoded_text}")
+        USERDATA = encoded_user_data
       else:
         print(f"Decode failed: {decoded_text}")
-#        return func.HttpResponse("UserData did not decode and/or #!/bin/bash is missing from the first line. \nAzure may need a minute or two before providing another properly configured VM.", status_code=429)
+        return func.HttpResponse("UserData did not decode and/or #!/bin/bash is missing from the first line. \nAzure may need a minute or two before providing another properly configured VM.", status_code=429)
     
     # Use DefaultAzureCredential to authenticate via Managed Identity
     credential = DefaultAzureCredential(additionally_allowed_tenants=["*"])
