@@ -170,7 +170,7 @@ import jwt
 import logging
 import os
 import sys
-import time
+import datetime
 import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
@@ -178,9 +178,7 @@ from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.compute.models import VirtualMachinePriorityTypes, VirtualMachineEvictionPolicyTypes, BillingProfile
 
 # Create suffix to use for device/resource names
-current_time = time.time()        
-time_str = str(current_time)
-SUFFIX = time_str[-6:]
+SUFFIX = datetime.datetime.now().strftime("%H%M%S")
 # Required for terraform-python compatibility
 true = True
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
@@ -320,7 +318,7 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     """
         Validates the GH webhook secret via it's signature before anything else
     """
-    
+     
     body = req.get_body()
     signature = req.headers.get("X-Hub-Signature-256")
 
@@ -331,7 +329,13 @@ def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     """
         If we are here, the sha256 hash signature is good! Now check to see if userdata is good.
     """
-    global USERDATA
+    global USERDATA, NAME, SUFFIX, VM_NAME, NIC_NAME, IP_NAME, DISK_NAME
+    SUFFIX = datetime.datetime.now().strftime("%H%M%S") # Recalculate SUFFIX each launch_vm run
+    VM_NAME = NAME + SUFFIX
+    NIC_NAME = NIC_BNAME + SUFFIX
+    IP_NAME = IP_BNAME + SUFFIX
+    DISK_NAME = DISK_BNAME + SUFFIX
+
     # encode user-data - convert to utf-8 first then use b64encode
     USERDATA8 = USERDATA.encode('utf-8')
     USERDATA = base64.b64encode(USERDATA8).decode('utf-8')
