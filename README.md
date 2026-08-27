@@ -61,7 +61,9 @@ git clone -b dynamic-ghr https://github.com/AndrewSimon/tf-azure
 3. Data Storage --> Containers --> + Add container --> demo-tf-state
  
 ## Request Azure App Function Quota for App Service in your Subscription
->Request 1 VM or more for App Service to use to run the python function
+
+1. Request 1 VM or more for App Service to use to run the python function containers
+2. Request 10 or more LowPriorityCores for spot VMs (az quota create --resource-name "LowPriorityCores" --scope ...)
 
 1. Quotas|My quotas --> Subscriptions --> Azure Subscription Name
 2. Provider: App Service --> Region (select the region to deploy)
