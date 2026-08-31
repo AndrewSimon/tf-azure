@@ -1,9 +1,9 @@
-name: Runs dependency installs and test script on dynamically provisioned gh runners
+name: Docker-in-Docker Build Server
 # v1
 on: [push]
 
 jobs:
-  complete-lifecycle:
+  build-and-test:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
     continue-on-error: true # ALL jobs need this to reach runner hook's lifecycle
@@ -12,15 +12,75 @@ jobs:
 #      id-token: write # Required for OIDC authentication
 #      contents: read
     steps:
-#  Demo workflow. Replace the steps below with your actual workflow
-      - name: Run Python shell commands to check os and node name, then sleep 30 seconds
+      - name: Install Docker CE
+        shell: bash
+        run: |
+               date
+               id
+               set -e # Exit immediately with any non-0 exit
+
+
+               echo "========================================="
+               echo "   Installing Docker on Ubuntu Server    "
+               echo "========================================="
+
+               # 1. Update the apt package index and install prerequisites
+               echo "--> Updating package index and installing prerequisites..."
+               sudo apt-get update -y
+               sudo apt-get install -y ca-certificates curl gnupg
+
+               # 2. Add Docker's official GPG key
+               echo "--> Adding Docker's official GPG key..."
+               sudo install -m 0755 -d /etc/apt/keyrings
+               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/docker.gpg
+               sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+               # 3. Set up the Docker repository
+               echo "--> Setting up the Docker repository..."
+               echo \
+                 "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+                 $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+                 sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+               # 4. Update the package index again with Docker packages included
+               echo "--> Updating package index with Docker repository..."
+               sudo apt-get update -y
+
+               # 5. Install Docker Engine, CLI, containerd, and Docker Compose
+               echo "--> Installing Docker packages..."
+               sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+               # 6. Verify the installation
+               echo "--> Verifying installation..."
+               sudo docker --version
+               sudo docker compose version
+
+               echo "========================================="
+               echo "      Docker Installed Successfully      "
+               echo "========================================="
+
+               # 7. Post-installation step to run Docker without sudo
+               echo "--> Adding $USER to the docker group..."
+               sudo usermod -aG docker azureuser
+               newgrp docker
+
+               docker --version
+      
+      - name: Make workdir, create Dockerfile, build our app container 
+        shell: bash
+        run: | 
+               mkdir alpine-build && cd alpine-build
+               echo "FROM alpine:latest" > Dockerfile
+               echo "RUN apk add --no-cache bash" >> Dockerfile
+               echo "CMD [\"/bin/bash\"]" >> Dockerfile
+               sudo docker build -t tlc-alpine-app .
+               # Show new container is alpine, not ubuntu server
+               sudo docker run --rm tlc-alpine-app cat /etc/os-release
+               
+      # Run timer - useful if build fails and you want to keep runner up
+      - name: Keep Running
         shell: python
         run:  |
-           import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);
-      - name: Run bash shell and print a command out
-        shell: bash
-        run:  |
-               date
-               
+          import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(3000);               
 #  Lifecycle termination of node at job completion is an 'adminstrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
