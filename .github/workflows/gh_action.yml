@@ -78,9 +78,9 @@ jobs:
                sudo docker run --rm tlc-alpine-app cat /etc/os-release
                
       # Run timer - useful if build fails and you want to keep runner up
-      - name: Keep Running
+      - name: Keep Running for 30 Seconds after Docker stuff completes
         shell: python
         run:  |
-          import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(3000);               
+          import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);               
 #  Lifecycle termination of node at job completion is an 'adminstrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
