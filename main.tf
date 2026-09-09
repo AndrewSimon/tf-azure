@@ -175,13 +175,6 @@ resource "azurerm_network_interface_security_group_association" "sg_assoc" {
   network_security_group_id = azurerm_network_security_group.public.id
 }
 
-# Assign the vm_contributor role to the Service Principal at the Resource Group scope
-#resource "azurerm_role_assignment" "sp_vm_contributor" {
-#  scope                = azurerm_resource_group.demo.id
-#  role_definition_id   = data.azurerm_role_definition.vm_contributor.id
-#  principal_id         = data.azuread_client_config.current.object_id 
-#}
-
 # CREATE THE USER-ASSIGNED MANAGED IDENTITY (Executed Prior to Dynamic VMs)
 resource "azurerm_user_assigned_identity" "vm_identity" {
   name                = "uami-vm-contributor"
@@ -253,6 +246,56 @@ resource "github_actions_secret" "webhook_secret" {
     ]
   }
 }
+
+# 1. Create User Assigned Managed Identity for Github (non-self-hosted) Runners
+resource "azurerm_user_assigned_identity" "github_oidc" {
+  name                = "id-github-actions-runner"
+  resource_group_name = azurerm_resource_group.demo.name
+  location            = data.azurerm_location.current.display_name
+}
+
+# 4. Assign Roles to the Identity (e.g., Contributor to manage resources)
+resource "azurerm_role_assignment" "sub_contributor" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+}
+
+# 5. Establish OIDC Trust via Federated Identity Credential
+resource "azurerm_federated_identity_credential" "github_repo_trust" {
+  name                = "fic-github-actions"
+  resource_group_name = azurerm_resource_group.demo.name
+  audience            = ["api://AzureADTokenExchange"]
+  issuer              = "https://token.actions.githubusercontent.com"
+  
+  # Links the identity specifically to your repo's main branch environment
+  subject             = "repo:${var.repo_name}:environment:public"
+  parent_id           = azurerm_user_assigned_identity.github_oidc.id
+}
+
+# These next 3 secrets can permission the runners when using azure/login@v2
+resource "github_actions_secret" "AZURE_SUBSCRIPTION_ID" {
+  repository      = "${local.repo}"
+  secret_name     = "AZURE_SUBSCRIPTION_ID"
+  plaintext_value           = data.azurerm_client_config.current.subscription_id
+}
+
+resource "github_actions_secret" "AZURE_TENANT_ID" {
+  repository      = "${local.repo}"
+  secret_name     = "AZURE_TENANT_ID"
+  plaintext_value           = data.azurerm_client_config.current.tenant_id
+}
+
+# This resource requires azure_function.tf as it is the function_app's client we use
+resource "github_actions_secret" "AZURE_CLIENT_ID" {
+  repository      = "${local.repo}"
+  secret_name     = "AZURE_CLIENT_ID"
+  plaintext_value           = azurerm_user_assigned_identity.github_oidc.client_id
+  depends_on = [
+    azuread_application.function_auth
+  ]
+}
+
 #data "github_actions_registration_token" "dynamic_runner" {
 #  repository = "${local.repo}"
 #}

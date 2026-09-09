@@ -1,8 +1,53 @@
-name: Runs dependency installs and test script on dynamically provisioned gh runners
+name: 'Terraform Plan via Python'
 # v1
 on: [push]
 
+permissions:
+  id-token: write # Required for Azure OIDC authentication
+  contents: read  # Required to checkout the code
+
+env:
+  # Pass Azure credentials as environment variables for Terraform's AzureRM provider
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: "true"
+
 jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    environment: public
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false # Set to false so Python can parse raw stdout/stderr
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ env.ARM_TENANT_ID }}
+          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+          environment: azurecloud
+          allow-no-subscriptions: true
+       
+      - name: Verify Login (Show Azure Account Details)
+        run: |
+          az account show
+
+      - name: Run Python Orchestrator
+        run: |
+          python scripts/run_tf_plan.py
+  
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
@@ -22,5 +67,5 @@ jobs:
         run:  |
                date
                
-#  Lifecycle termination of node at job completion is an 'adminstrator' function controlled
+#  Lifecycle termination of node at job completion is an 'administrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 

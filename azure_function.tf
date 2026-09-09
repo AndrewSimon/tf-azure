@@ -8,7 +8,7 @@ os_type = "Linux"
 	sku_name = "FC1" # Consumption plan
 }
 
-# App registration with Entra ID and Password below it
+# 1. App registration with Entra ID and Password below it
 resource "azuread_application" "function_auth" {
   display_name     = "tlc-function-app-auth"
   sign_in_audience = "AzureADMyOrg"
