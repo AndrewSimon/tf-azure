@@ -11,7 +11,7 @@ env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  GH-PAT:  ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+  GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
   ARM_USE_OIDC: "true"
 
 jobs:
@@ -53,7 +53,7 @@ jobs:
         id: plan
         run: |
           touch function_app.py
-          terraform plan -var=token=${{ env.GH_PAT }} -var=adminpass=
+          terraform plan -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
           
         
   complete-lifecycle:

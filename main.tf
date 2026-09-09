@@ -44,9 +44,9 @@ data "azuread_client_config" "current" {}
 
 data "azurerm_location" "current" { location = var.location }
 
-data "azuread_user" "current_user" {
-  object_id = data.azuread_client_config.current.object_id
-}
+#data "azuread_user" "current_user" {
+#  object_id = data.azuread_client_config.current.object_id
+#}
 
 data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
@@ -273,7 +273,7 @@ resource "azurerm_federated_identity_credential" "github_repo_trust" {
   parent_id           = azurerm_user_assigned_identity.github_oidc.id
 }
 
-# These next 3 secrets can permission the runners when using azure/login@v2
+# These next 5 secrets are used to permission gh-runners when using azure/login@v2
 resource "github_actions_secret" "AZURE_SUBSCRIPTION_ID" {
   repository      = "${local.repo}"
   secret_name     = "AZURE_SUBSCRIPTION_ID"
@@ -298,6 +298,12 @@ resource "github_actions_secret" "GITHUB_PERSONAL_ACCESS_TOKEN" {
   plaintext_value = var.token
 }
 
+resource "github_actions_secret" "ADMIN_PASSWORD" {
+  repository      = "${local.repo}"
+  secret_name     = "ADMIN_PASSWORD"
+  plaintext_value = var.adminpass
+}
+
 #data "github_actions_registration_token" "dynamic_runner" {
 #  repository = "${local.repo}"
 #}
@@ -305,6 +311,6 @@ resource "github_actions_secret" "GITHUB_PERSONAL_ACCESS_TOKEN" {
 output "public_ip_address" {
   value = one(azurerm_public_ip.demo_ip[*].ip_address)
 }
-output "current_user_principal_name" {
-  value = data.azuread_user.current_user.user_principal_name
-}
+#output "current_user_principal_name" {
+#  value = data.azuread_user.current_user.user_principal_name
+#}
