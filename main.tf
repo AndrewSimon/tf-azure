@@ -294,7 +294,7 @@ resource "github_actions_secret" "AZURE_CLIENT_ID" {
 
 resource "github_actions_secret" "GITHUB_PERSONAL_ACCESS_TOKEN" {
   repository      = "${local.repo}"
-  secret_name     = "GITHUB_PERSONAL_ACCESS_TOKEN"
+  secret_name     = "PERSONAL_ACCESS_TOKEN"
   plaintext_value = var.token
 }
 
