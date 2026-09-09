@@ -27,7 +27,7 @@ jobs:
           python-version: '3.11'
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false # Set to false so Python can parse raw stdout/stderr
 
@@ -44,10 +44,15 @@ jobs:
         run: |
           az account show
 
-      - name: Run Python Orchestrator
-        run: |
-          python scripts/run_tf_plan.py
-  
+      # Initialize the working directory containing configuration files
+      - name: Terraform Init
+        id: init
+        run: terraform init
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan
+          
+        
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
