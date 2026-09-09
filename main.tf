@@ -277,23 +277,25 @@ resource "azurerm_federated_identity_credential" "github_repo_trust" {
 resource "github_actions_secret" "AZURE_SUBSCRIPTION_ID" {
   repository      = "${local.repo}"
   secret_name     = "AZURE_SUBSCRIPTION_ID"
-  plaintext_value           = data.azurerm_client_config.current.subscription_id
+  plaintext_value = data.azurerm_client_config.current.subscription_id
 }
 
 resource "github_actions_secret" "AZURE_TENANT_ID" {
   repository      = "${local.repo}"
   secret_name     = "AZURE_TENANT_ID"
-  plaintext_value           = data.azurerm_client_config.current.tenant_id
+  plaintext_value = data.azurerm_client_config.current.tenant_id
 }
 
-# This resource requires azure_function.tf as it is the function_app's client we use
 resource "github_actions_secret" "AZURE_CLIENT_ID" {
   repository      = "${local.repo}"
   secret_name     = "AZURE_CLIENT_ID"
-  plaintext_value           = azurerm_user_assigned_identity.github_oidc.client_id
-  depends_on = [
-    azuread_application.function_auth
-  ]
+  plaintext_value  = azurerm_user_assigned_identity.github_oidc.client_id
+}
+
+resource "github_actions_secret" "GITHUB_PERSONAL_ACCESS_TOKEN" {
+  repository      = "${local.repo}"
+  secret_name     = "GITHUB_PERSONAL_ACCESS_TOKEN"
+  plaintext_value = var.token
 }
 
 #data "github_actions_registration_token" "dynamic_runner" {

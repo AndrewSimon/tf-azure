@@ -11,6 +11,7 @@ env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  GH-PAT:  ${{ secrets.GITHUB_PERSONAL_ACCESS_TOKEN }}
   ARM_USE_OIDC: "true"
 
 jobs:
@@ -52,7 +53,7 @@ jobs:
         id: plan
         run: |
           touch function_app.py
-          terraform plan
+          terraform plan -var=token=
           
         
   complete-lifecycle:
