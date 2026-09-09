@@ -50,7 +50,9 @@ jobs:
         run: terraform init
       - name: Terraform Plan
         id: plan
-        run: terraform plan
+        run: |
+          touch function_app.py
+          terraform plan
           
         
   complete-lifecycle:
