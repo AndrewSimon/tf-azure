@@ -54,8 +54,7 @@ jobs:
         run: |
           touch function_app.py
           terraform plan -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
-          
-        
+      
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
