@@ -248,30 +248,30 @@ resource "github_actions_secret" "webhook_secret" {
 }
 
 # 1. Create User Assigned Managed Identity for Github (non-self-hosted) Runners
-resource "azurerm_user_assigned_identity" "github_oidc" {
-  name                = "id-github-actions-runner"
-  resource_group_name = azurerm_resource_group.demo.name
-  location            = data.azurerm_location.current.display_name
-}
+#resource "azurerm_user_assigned_identity" "github_oidc" {
+#  name                = "id-github-actions-runner"
+#  resource_group_name = azurerm_resource_group.demo.name
+#  location            = data.azurerm_location.current.display_name
+#}
 
 # 4. Assign Roles to the Identity (e.g., Contributor to manage resources)
-resource "azurerm_role_assignment" "sub_contributor" {
-  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
-  role_definition_name = "Contributor"
-  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
-}
+#resource "azurerm_role_assignment" "sub_contributor" {
+#  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+#  role_definition_name = "Contributor"
+#  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+#}
 
 # 5. Establish OIDC Trust via Federated Identity Credential
-resource "azurerm_federated_identity_credential" "github_repo_trust" {
-  name                = "fic-github-actions"
-  resource_group_name = azurerm_resource_group.demo.name
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
+#resource "azurerm_federated_identity_credential" "github_repo_trust" {
+#  name                = "fic-github-actions"
+#  resource_group_name = azurerm_resource_group.demo.name
+#  audience            = ["api://AzureADTokenExchange"]
+#  issuer              = "https://token.actions.githubusercontent.com"
   
   # Links the identity specifically to your repo's main branch environment
-  subject             = "repo:${var.repo_name}:environment:public"
-  parent_id           = azurerm_user_assigned_identity.github_oidc.id
-}
+#  subject             = "repo:${var.repo_name}:environment:public"
+#  parent_id           = azurerm_user_assigned_identity.github_oidc.id
+#}
 
 # These next 5 secrets are used to permission gh-runners when using azure/login@v2
 resource "github_actions_secret" "AZURE_SUBSCRIPTION_ID" {
@@ -289,7 +289,8 @@ resource "github_actions_secret" "AZURE_TENANT_ID" {
 resource "github_actions_secret" "AZURE_CLIENT_ID" {
   repository      = "${local.repo}"
   secret_name     = "AZURE_CLIENT_ID"
-  plaintext_value  = azurerm_user_assigned_identity.github_oidc.client_id
+  plaintext_value = data.azurerm_client_config.current.client_id
+  #azurerm_user_assigned_identity.github_oidc.client_id
 }
 
 resource "github_actions_secret" "GITHUB_PERSONAL_ACCESS_TOKEN" {
