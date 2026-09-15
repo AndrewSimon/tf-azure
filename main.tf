@@ -254,7 +254,7 @@ resource "azurerm_user_assigned_identity" "github_oidc" {
   location            = azurerm_resource_group.demo.location
 }
 
-# 4. Assign Roles to the Identity (e.g., Contributor to manage resources)
+# 4. Assign Roles to the Identity (e.g., Contributor to manage subsctiption resources)
 resource "azurerm_role_assignment" "sub_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Contributor"
@@ -264,7 +264,7 @@ resource "azurerm_role_assignment" "sub_contributor" {
 # 5. Establish OIDC Trust via Federated Identity Credential
 resource "azurerm_federated_identity_credential" "github_repo_trust" {
   name                = "fic-github-actions"
-  resource_group_name = azurerm_resource_group.demo.name
+# Deprecated:  resource_group_name = azurerm_resource_group.demo.name
   audience            = ["api://AzureADTokenExchange"]
   issuer              = "https://token.actions.githubusercontent.com"
   
@@ -273,6 +273,16 @@ resource "azurerm_federated_identity_credential" "github_repo_trust" {
   parent_id           = azurerm_user_assigned_identity.github_oidc.id
 }
 
+# 6. Create Role Assignment to access tlc-function-app
+resource "azurerm_role_assignment" "function_app_flex_access" {
+  scope                = azurerm_function_app_flex_consumption.demo.id
+  role_definition_name = "Website Contributor" # Change this based on the exact access level you need
+  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+  depends_on = [
+    azurerm_user_assigned_identity.github_oidc,
+    azurerm_function_app_flex_consumption.demo
+  ]
+}
 # These next 5 secrets are used to permission gh-runners when using azure/login@v2
 resource "github_actions_secret" "AZURE_SUBSCRIPTION_ID" {
   repository      = "${local.repo}"
