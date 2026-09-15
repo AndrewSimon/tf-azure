@@ -248,11 +248,11 @@ resource "github_actions_secret" "webhook_secret" {
 }
 
 # 1. Create User Assigned Managed Identity for Github (non-self-hosted) Runners
-#resource "azurerm_user_assigned_identity" "github_oidc" {
-#  name                = "id-github-actions-runner"
-#  resource_group_name = azurerm_resource_group.demo.name
-#  location            = data.azurerm_location.current.display_name
-#}
+resource "azurerm_user_assigned_identity" "github_oidc" {
+  name                = "id-github-actions-runner"
+  resource_group_name = azurerm_resource_group.demo.name
+  location            = azurerm_resource_group.demo.location
+}
 
 # 4. Assign Roles to the Identity (e.g., Contributor to manage resources)
 #resource "azurerm_role_assignment" "sub_contributor" {
