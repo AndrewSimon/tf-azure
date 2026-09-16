@@ -255,8 +255,8 @@ resource "azurerm_user_assigned_identity" "github_oidc" {
 }
 
 # 4. Assign Roles to the Identity (e.g., Contributor to manage subsctiption resources)
-resource "azurerm_role_assignment" "sub_contributor" {
-  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+resource "azurerm_role_assignment" "rg_contributor" {
+  scope                = azurerm_resource_group.demo.id
   role_definition_name = "Contributor"
   principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
 }
