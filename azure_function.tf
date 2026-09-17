@@ -28,11 +28,11 @@ resource "azurerm_role_assignment" "contributor" {
 }
 
 # Place-holder for future dev
-resource "azurerm_role_assignment" "kudu_role" {
-  scope                = azurerm_function_app_flex_consumption.demo.id
-  role_definition_name = "Website Contributor"
-  principal_id         = data.azurerm_client_config.current.object_id
-}
+#resource "azurerm_role_assignment" "kudu_role" {
+#  scope                = azurerm_function_app_flex_consumption.demo.id
+#  role_definition_name = "Website Contributor"
+#  principal_id         = data.azurerm_client_config.current.object_id
+#}
 
 # Generate SAS token for function code blob authorization
 data "azurerm_storage_account_blob_container_sas" "sas" {
