@@ -49,6 +49,18 @@ data "azurerm_resource_group" "terraform_state" {
   name = "terraform-state" # Replace with your Terraform State stroage RG name
 }
 
+# 1. Activate the Application Administrator role in the tenant (if not already active)
+resource "azuread_directory_role" "app_admin" {
+  display_name = "Application Administrator"
+}
+
+# 2. Assign the Application Administrator role to your GitHub OIDC Managed Identity
+resource "azuread_directory_role_assignment" "github_oidc_ad_access" {
+  role_id             = azuread_directory_role.app_admin.template_id
+  principal_object_id = azurerm_user_assigned_identity.github_oidc.principal_id
+}
+
+# This was already active. Activation can be done, or use import, as needed
 data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
 }
@@ -255,7 +267,16 @@ resource "azurerm_user_assigned_identity" "github_oidc" {
   location            = azurerm_resource_group.demo.location
 }
 
-# 4. Assign a role to the identity (i.e., Contributor) to access resources in each asigned rg
+
+# 2. Assign other role (not Contributor) to identity outside of for loop below
+resource "azurerm_role_assignment" "tf_key_permissions" {
+  scope                = azurerm_key_vault.vault.id
+  role_definition_name = "Key Vault Crypto Officer"
+  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+}
+
+
+# 3. Assign a role to the identity (i.e., Contributor) to access resources in each asigned rg
 resource "azurerm_role_assignment" "rg_contributor" {
   for_each = {
     group_1 = data.azurerm_resource_group.terraform_state.id
