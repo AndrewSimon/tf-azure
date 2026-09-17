@@ -54,11 +54,15 @@ jobs:
         run: |
           touch function_app.py
           terraform plan -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
-      - name: Terraform Apply
+      - name: Terraform Apply (Builds and deploys the python function app, as well)
         id: apply
         run: |
           touch function_app.py
           terraform apply -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
+        - name: Test function_app.py
+        id: test
+        run: |
+          python function_app.py
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
