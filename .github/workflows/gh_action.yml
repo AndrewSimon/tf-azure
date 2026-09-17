@@ -54,7 +54,7 @@ jobs:
         run: |
           touch function_app.py
           terraform plan -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
-      - name: Terraform Apply (Builds and deploys the python function app, as well)
+      - name: Terraform Apply
         id: apply
         run: |
           touch function_app.py
