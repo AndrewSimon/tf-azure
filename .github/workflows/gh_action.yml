@@ -32,6 +32,12 @@ jobs:
         with:
           terraform_wrapper: false # Set to false so Python can parse raw stdout/stderr
 
+      - name: Install dependencies to be able to test function_app.py build 
+        run: |
+          python -m pip install --upgrade pip
+          pip install urllib3 PyJWT cryptography azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-functions
+          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+
       - name: Azure Login via OIDC
         uses: azure/login@v2
         with:
@@ -49,20 +55,27 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
+
       - name: Terraform Plan
         id: plan
         run: |
           touch function_app.py
           terraform plan -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
+
       - name: Terraform Apply
         id: apply
         run: |
           touch function_app.py
           terraform apply -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
-        - name: Test function_app.py
+
+      # NEVER cat or otherwise display function_app.py as it contains secrets
+      - name: Test function_app.py
         id: test
         run: |
           python function_app.py
+          ls -l function_app.py
+          tail -n 5 function_app.py
+
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
