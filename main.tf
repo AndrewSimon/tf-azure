@@ -44,9 +44,10 @@ data "azuread_client_config" "current" {}
 
 data "azurerm_location" "current" { location = var.location }
 
-#data "azuread_user" "current_user" {
-#  object_id = data.azuread_client_config.current.object_id
-#}
+# We need to grant access to our manyally created terraform state storage
+data "azurerm_resource_group" "terraform_state" {
+  name = "terraform-state" # Replace with your Terraform State stroage RG name
+}
 
 data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
@@ -254,9 +255,14 @@ resource "azurerm_user_assigned_identity" "github_oidc" {
   location            = azurerm_resource_group.demo.location
 }
 
-# 4. Assign Roles to the Identity (e.g., Contributor to manage subsctiption resources)
+# 4. Assign a role to the identity (i.e., Contributor) to access resources in each asigned rg
 resource "azurerm_role_assignment" "rg_contributor" {
-  scope                = azurerm_resource_group.demo.id
+  for_each = {
+    group_1 = data.azurerm_resource_group.terraform_state.id
+    group_2 = azurerm_resource_group.demo.id
+  }
+
+  scope                = each.value
   role_definition_name = "Contributor"
   principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
 }
