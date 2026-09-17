@@ -44,10 +44,23 @@ data "azuread_client_config" "current" {}
 
 data "azurerm_location" "current" { location = var.location }
 
-data "azuread_user" "current_user" {
-  object_id = data.azuread_client_config.current.object_id
+# We need to grant access to our manyally created terraform state storage
+data "azurerm_resource_group" "terraform_state" {
+  name = "terraform-state" # Replace with your Terraform State stroage RG name
 }
 
+# 1. Activate the Application Administrator role in the tenant (if not already active)
+resource "azuread_directory_role" "app_admin" {
+  display_name = "Application Administrator"
+}
+
+# 2. Assign the Application Administrator role to your GitHub OIDC Managed Identity
+resource "azuread_directory_role_assignment" "github_oidc_ad_access" {
+  role_id             = azuread_directory_role.app_admin.template_id
+  principal_object_id = azurerm_user_assigned_identity.github_oidc.principal_id
+}
+
+# This was already active. Activation can be done, or use import, as needed
 data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
 }
@@ -175,13 +188,6 @@ resource "azurerm_network_interface_security_group_association" "sg_assoc" {
   network_security_group_id = azurerm_network_security_group.public.id
 }
 
-# Assign the vm_contributor role to the Service Principal at the Resource Group scope
-#resource "azurerm_role_assignment" "sp_vm_contributor" {
-#  scope                = azurerm_resource_group.demo.id
-#  role_definition_id   = data.azurerm_role_definition.vm_contributor.id
-#  principal_id         = data.azuread_client_config.current.object_id 
-#}
-
 # CREATE THE USER-ASSIGNED MANAGED IDENTITY (Executed Prior to Dynamic VMs)
 resource "azurerm_user_assigned_identity" "vm_identity" {
   name                = "uami-vm-contributor"
@@ -253,6 +259,88 @@ resource "github_actions_secret" "webhook_secret" {
     ]
   }
 }
+
+# 1. Create User Assigned Managed Identity for Github (non-self-hosted) Runners
+resource "azurerm_user_assigned_identity" "github_oidc" {
+  name                = "id-github-actions-runner"
+  resource_group_name = azurerm_resource_group.demo.name
+  location            = azurerm_resource_group.demo.location
+}
+
+
+# 2. Assign other role (not Contributor) to identity outside of for loop below
+#resource "azurerm_role_assignment" "tf_key_permissions" {
+#  scope                = azurerm_key_vault.vault.id
+#  role_definition_name = "Key Vault Crypto Officer"
+#  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+#}
+
+
+# 3. Assign a role to the identity (i.e., Contributor) to access resources in each asigned rg
+resource "azurerm_role_assignment" "rg_contributor" {
+  for_each = {
+    group_1 = data.azurerm_resource_group.terraform_state.id
+    group_2 = azurerm_resource_group.demo.id
+  }
+
+  scope                = each.value
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+}
+
+# 5. Establish OIDC Trust via Federated Identity Credential
+resource "azurerm_federated_identity_credential" "github_repo_trust" {
+  name                = "fic-github-actions"
+# Deprecated:  resource_group_name = azurerm_resource_group.demo.name
+  audience            = ["api://AzureADTokenExchange"]
+  issuer              = "https://token.actions.githubusercontent.com"
+  
+  # Links the identity specifically to your repo's main branch environment
+  subject             = "repo:${var.repo_name}:environment:public"
+  parent_id           = azurerm_user_assigned_identity.github_oidc.id
+}
+
+# 6. Create Role Assignment to access tlc-function-app
+resource "azurerm_role_assignment" "function_app_flex_access" {
+  scope                = azurerm_function_app_flex_consumption.demo.id
+  role_definition_name = "Website Contributor" # Change this based on the exact access level you need
+  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+  depends_on = [
+    azurerm_user_assigned_identity.github_oidc,
+    azurerm_function_app_flex_consumption.demo
+  ]
+}
+# These next 5 secrets are used to permission gh-runners when using azure/login@v2
+resource "github_actions_secret" "AZURE_SUBSCRIPTION_ID" {
+  repository      = "${local.repo}"
+  secret_name     = "AZURE_SUBSCRIPTION_ID"
+  plaintext_value = data.azurerm_client_config.current.subscription_id
+}
+
+resource "github_actions_secret" "AZURE_TENANT_ID" {
+  repository      = "${local.repo}"
+  secret_name     = "AZURE_TENANT_ID"
+  plaintext_value = data.azurerm_client_config.current.tenant_id
+}
+
+resource "github_actions_secret" "AZURE_CLIENT_ID" {
+  repository      = "${local.repo}"
+  secret_name     = "AZURE_CLIENT_ID"
+  plaintext_value = azurerm_user_assigned_identity.github_oidc.client_id
+}
+
+resource "github_actions_secret" "GITHUB_PERSONAL_ACCESS_TOKEN" {
+  repository      = "${local.repo}"
+  secret_name     = "PERSONAL_ACCESS_TOKEN"
+  plaintext_value = var.token
+}
+
+resource "github_actions_secret" "ADMIN_PASSWORD" {
+  repository      = "${local.repo}"
+  secret_name     = "ADMIN_PASSWORD"
+  plaintext_value = var.adminpass
+}
+
 #data "github_actions_registration_token" "dynamic_runner" {
 #  repository = "${local.repo}"
 #}
@@ -260,6 +348,6 @@ resource "github_actions_secret" "webhook_secret" {
 output "public_ip_address" {
   value = one(azurerm_public_ip.demo_ip[*].ip_address)
 }
-output "current_user_principal_name" {
-  value = data.azuread_user.current_user.user_principal_name
-}
+#output "current_user_principal_name" {
+#  value = data.azuread_user.current_user.user_principal_name
+#}
