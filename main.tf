@@ -269,11 +269,11 @@ resource "azurerm_user_assigned_identity" "github_oidc" {
 
 
 # 2. Assign other role (not Contributor) to identity outside of for loop below
-resource "azurerm_role_assignment" "tf_key_permissions" {
-  scope                = azurerm_key_vault.vault.id
-  role_definition_name = "Key Vault Crypto Officer"
-  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
-}
+#resource "azurerm_role_assignment" "tf_key_permissions" {
+#  scope                = azurerm_key_vault.vault.id
+#  role_definition_name = "Key Vault Crypto Officer"
+#  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+#}
 
 
 # 3. Assign a role to the identity (i.e., Contributor) to access resources in each asigned rg

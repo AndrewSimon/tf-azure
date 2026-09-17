@@ -128,7 +128,7 @@ resource "terraform_data" "upload_function" {
     command = <<EOT
       set -euo pipefail
       TMPFILE=/tmp/func.out
-      py -m venv .venv
+      # py -m venv .venv # Not needed on a GH hosted runner 
       # Run the long-running command in the background, redirecting stdout to file
       ( func azure functionapp publish tlc-function-app --python > "$TMPFILE" 2>&1 ) &
       CMD_PID=$!
