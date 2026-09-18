@@ -286,6 +286,10 @@ resource "azurerm_role_assignment" "rg_contributor" {
   scope                = each.value
   role_definition_name = "Contributor"
   principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # 5. Establish OIDC Trust via Federated Identity Credential
