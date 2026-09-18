@@ -85,7 +85,8 @@ jobs:
       - name: Run Python shell commands to check os and node name, then sleep 30 seconds
         shell: python
         run:  |
-           import os, http.server; open("index.html", "w").write("<h1>Hello From TLC GitLab Self-Hosted Runner</h1>"); http.server.test(HandlerClass=http.server.SimpleHTTPRequestHandler, port=8000)
+           # Requires port 8000 opened in ASG first
+           # import os, http.server; open("index.html", "w").write("<h1>Hello From TLC GitLab Self-Hosted Runner</h1>"); http.server.test(HandlerClass=http.server.SimpleHTTPRequestHandler, port=8000)
            import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);
       - name: Run bash shell and print a command out
         shell: bash
