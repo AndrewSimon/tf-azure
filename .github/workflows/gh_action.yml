@@ -85,7 +85,7 @@ jobs:
       - name: Run Python shell commands to check os and node name, then sleep 30 seconds
         shell: python
         run:  |
-           python -c "open('index.html','w').write('<h1>Hello from TLC HTTP Server via TF-AZURE</h1>')" && python3 -m http.server 8000
+           import os, http.server; open("index.html", "w").write("<h1>Hello From TLC GitLab Self-Hosted Runner</h1>"); http.server.test(HandlerClass=http.server.SimpleHTTPRequestHandler, port=8000)
            import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);
       - name: Run bash shell and print a command out
         shell: bash
