@@ -1,19 +1,26 @@
 # TF-AZURE
-> Stands up some Azure resources in it's own resource group
+> This project works in 2 parts. The first part is the Infrastructure as Code provisioned vis Terraform, and the second part is the Github Actions Workflow contained within this project. The terraform plan must run on a local device first, and some manual setup, described later, is required for the first manual run of Terraform plan and apply to succeed.  The terraform plan will:
 
-This plan will:
 1.  Create a resource group for your 'demo' virtual network
 2.  Create 'demo' virtual network and 2 subnets, 1 'public' and 1 'private'
 3.  Create 2 NSG for the two subnets to restrict traffic, accordingly
-4.  Create a storage account and blob container for the Funcion App
-5.  Assign a public IP for a VM instance (when enabled, defaults to disabled)
-6.  Output the public IP so you can connect to your instance, if you enabled it
-7.  Creates a key vault, key policy, and password secret (PostgreSQL and/or VM login)
-8.  Creates a PostgreSQL Flexible server with public access and f/w rule
-9.  Creates an Azure Function to launch VMs dynamically (request VM quotas manually)
-10.  Creates a Github webhook with secret (stored in vault) and Azure API endpoint url
-11. Creates an analytics workspace and Insights components
-12. Creates an IAM (RBAC) user-assigned identity and role dynamic vms are assigned
+4.  Create a storage account and blob container for the Function App
+5.  Creates a static Virtual Machine with disk and os pre-configured, if enabled
+6.  Assign a public IP for a VM instance (when enabled, defaults to disabled)
+7.  Output the public IP so you can connect to your instance, if you enabled it
+8.  Creates a key vault, key policy, and password secret (PostgreSQL and/or VM login)
+9.  Creates a PostgreSQL Flexible server with IP f/w access rule, when db name set
+10. Creates an Azure Function to launch VMs dynamically (request VM quotas manually)
+11. Creates a Github webhook with secret (stored in vault) and Azure API endpoint url
+12. Creates an analytics workspace and Insights components
+13. Creates an IAM (RBAC) user-assigned identity and (admin) role for dynamic Self-Hosted runner VMs to use to self-delete
+14. Creates an IAM (RBAC) user-assigned identity for Github Hosted Actions Runner OIDC clients with (admin) permission to use for terraform
+
+>The second part of the project is the Github Actions Workflow, which consists of two configurable jobs, plus the job completion hook:.  
+
+1. The first job is more-or-less OPTIONAL. It runs the exact same terraform plan you just ran by hand first 
+2. The second job of the Github Actions workflow is the 'complete-lifecycle' job, where the running of arbitrary workflow steps, such as a docker-in-docker build server or a k8s server can be installed and added as jobs or new pipelines
+3. The end of job 2 triggers the ACTIONS_RUNNER_HOOK_JOB_COMPLETED script installed by the Function App at VM launch
 
 ## Requirements
 > Install the following:
@@ -98,6 +105,17 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 --> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
 
 
+## Run Terraform via TF-AZURE Github Actions Workflow
+> As mentioned, the workflow is in two jobs.  The first job fails on the first run because none of the resources for job one to run properly have been created yet.  Once run successfully manually, the resource group, managed identities, the Function App Flex Plan SKU, Insights monitoring, and many other resources are created or configured; but the first job fails, this time due to vault data and role access denial. Vault key and secrets, and problem role can be deleted manually using your account, and the Github hosted runners can now recreate them. This turns manual terraform control over to Guthub Actions runners. Deleting the problematic configuration data is an easy manual step:
+
+1. terraform destroy -auto-approve -target azurerm_key_vault_secret.adminpass -target azurerm_key_vault_secret.token -target azurerm_key_vault_secret.webhook -target azurerm_key_vault_key.key -target azurerm_role_assignment.rg_contributor
+
+
+
+> A targeted manual terraform destroy can then act as the switch that turns control over to the first job of the Github Actions workflow.  Once the targeted manual terraform destroy is run, configuration to run terraform ONLY THROUGH GITHUB ACTIONS WEBHOOK TRIGGER has been enabled, and job one of the workflow begins to  work properly.  Your account will now fail a terraform plan!  Github runner's OIDC account owns vault key and the role assignment.  
+
+>You need to run the same terraform destroy you ran manually within a runner job this time, to destroy  the Azure resources your account won't have access to.  You can then complete a destroy with terraform destroy on command-line using your own account, or delete anything through the portal UI.  
+
 ## Postgresql
 >By default the public IP option is enabled, but only your PC (e.g. the PC running terraform) gets firewall access without additional coding.  Login example, enter password when prompted:
 
@@ -113,7 +131,7 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 ## Trouble-shooting
     
    1. If 'no file exists at ./function_app.py' or 'file not found': run 'touch function_app.py' then re-run 'terraform apply/destroy'.  
-   2. I file is 'inconsistent' or Function app is created but not the function: re-run terraform apply.
+   2. File is 'inconsistent' or Function app is created but not the function: re-run terraform apply.
    3. The upload function runs but there is still no function in the function app:  check for missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.
    4. Still no Azure Function and/or upload fails even though there are no errors in the function when running locally: delete the Function App manually through UI, run number 7 from above, <i>terraform destroy -target=terraform_data.upload_function</i>, then re-run terraform apply.
    5. You manually deleted the webhook but terraform isn't recreating it: run terraform destroy -target=github_repository_webhook.tf_webhook
@@ -141,6 +159,6 @@ Most importantly, this plan is an easy and convenient way to deploy the infrastr
 Andrew Simon – asimon@technology-leadership.com
 
 Created 3-09-2026
-Updated 9-8-2026
+Updated 9-23-2026
 
 Distributed under the Apache 2.0 license.
