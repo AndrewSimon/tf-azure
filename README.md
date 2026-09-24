@@ -106,9 +106,9 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 
 
 ## Run Terraform via TF-AZURE Github Actions Workflow
-> As mentioned, the workflow is in two jobs.  The first job fails on the first run because none of the resources for job one to run properly have been created yet.  Once run successfully manually, the resource group, managed identities, the Function App Flex Plan SKU, Insights monitoring, and many other resources are created or configured; but the first job fails, this time due to vault data and role access denial. Vault key and secrets, and problem role can be deleted manually using your account, and the Github hosted runners can now recreate them. This turns manual terraform control over to Guthub Actions runners. Deleting the problematic configuration data is an easy manual step:
+> As mentioned, the workflow is in two jobs.  The first job fails on the first run because none of the resources for job one to run properly have been created yet.  Once run successfully manually, the resource group, managed identities, the Function App Flex Plan SKU, Insights monitoring, and many other resources are created or configured; but the first job fails, this time due to vault key access denial. Vault key and secrets can be deleted manually using your account, and the Github hosted runners can now recreate them. This turns manual terraform control over to Guthub Actions runners. Deleting the problematic configuration data is an easy manual step:
 
-1. terraform destroy -auto-approve -target azurerm_key_vault_secret.adminpass -target azurerm_key_vault_secret.token -target azurerm_key_vault_secret.webhook -target azurerm_key_vault_key.key -target azurerm_role_assignment.rg_contributor
+1. terraform destroy -auto-approve -target azurerm_key_vault_secret.adminpass -target azurerm_key_vault_secret.token -target azurerm_key_vault_secret.webhook -target azurerm_key_vault_key.key
 
 
 
