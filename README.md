@@ -112,7 +112,7 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 
 
 
-> A targeted manual terraform destroy can then act as the switch that turns control over to the first job of the Github Actions workflow.  Once the targeted manual terraform destroy is run, configuration to run terraform ONLY THROUGH GITHUB ACTIONS WEBHOOK TRIGGER has been enabled, and job one of the workflow begins to  work properly.  Your account will now fail a terraform plan!  Github runner's OIDC account owns vault key and the role assignment.  
+> A targeted manual terraform destroy can then act as the switch that turns control over to the first job of the Github Actions workflow.  Once the targeted manual terraform destroy is run, configuration to run terraform ONLY THROUGH GITHUB ACTIONS WEBHOOK TRIGGER has been enabled, and job one of the workflow begins to  work properly.  Simply push a repository update to trigger both terraform and runner jobs. Your command-line account will now fail a terraform plan!  Github runner's OIDC account owns vault key and the role assignment.  
 
 >You need to run the same terraform destroy you ran manually within a runner job this time, to destroy  the Azure resources your account won't have access to.  You can then complete a destroy with terraform destroy on command-line using your own account, or delete anything through the portal UI.  
 
@@ -159,6 +159,7 @@ Most importantly, this plan is an easy and convenient way to deploy the infrastr
 Andrew Simon – asimon@technology-leadership.com
 
 Created 3-09-2026
+
 Updated 9-23-2026
 
 Distributed under the Apache 2.0 license.

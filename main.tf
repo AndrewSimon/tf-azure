@@ -58,6 +58,10 @@ resource "azuread_directory_role" "app_admin" {
 resource "azuread_directory_role_assignment" "github_oidc_ad_access" {
   role_id             = azuread_directory_role.app_admin.template_id
   principal_object_id = azurerm_user_assigned_identity.github_oidc.principal_id
+  depends_on = [
+    azurerm_user_assigned_identity.github_oidc,
+    azuread_directory_role.app_admin
+  ]
 }
 
 # This was already active. Activation can be done, or use import, as needed
