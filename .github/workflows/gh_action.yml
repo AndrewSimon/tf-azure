@@ -49,11 +49,11 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-      - name: Terraform Destroy
-        id: destroy
+      - name: Terraform Plan
+        id: plan
         run: |
           touch function_app.py
-          terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target azurerm_key_vault_key.key -target azuread_application.function_auth -target azurerm_key_vault_secret.adminpass -target azurerm_key_vault_secret.token -target azurerm_key_vault_secret.webhook -target azurerm_function_app_flex_consumption.demo 
+          terraform plan -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target azurerm_key_vault_key.key -target azuread_application.function_auth -target azurerm_key_vault_secret.adminpass -target azurerm_key_vault_secret.token -target azurerm_key_vault_secret.webhook -target azurerm_function_app_flex_consumption.demo 
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
