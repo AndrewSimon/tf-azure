@@ -1,4 +1,4 @@
-name: 'Terraform Plan via Python'
+name: 'Terraform Partial Destroy'
 # v1
 on: [push]
 
