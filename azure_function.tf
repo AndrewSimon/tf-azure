@@ -89,6 +89,7 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 
   app_settings = {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = azuread_application_password.function_auth_secret.value
+    "WEBHOOK_SECRET" = azurerm_key_vault_secret.webhook.value
 #    "WEBSITE_LOCAL_CACHE_OPTION" = "Never"
 #    "WEBSITE_FUNCTIONS_ARMCACHE_ENABLED" = "0"
   }
@@ -183,7 +184,7 @@ SUFFIX = datetime.datetime.now().strftime("%H%M%S")
 true = True
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
-JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
+JWT_SECRET = os.environ.get("WEBHOOK_SECRET")
 LOCATION = "${var.location}"
 VM_SIZE = "${var.vm_size}"
 GH_PAT = '${var.token}'
