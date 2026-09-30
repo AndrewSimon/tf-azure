@@ -121,9 +121,9 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 ## Additionally, this custom resource can manage the function life-cycle 
 ## independently from the flex app resource
 resource "terraform_data" "upload_function" {
-  triggers_replace = {
-    file_content_hash = filemd5("${path.module}/function_app.py")
-  }
+#  triggers_replace = {
+#    file_content_hash = filemd5("${path.module}/function_app.py")
+# }
   provisioner "local-exec" {
     # Use bash to run the command and stream last line every second
     command = <<EOT
