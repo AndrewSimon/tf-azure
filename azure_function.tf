@@ -90,6 +90,8 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   app_settings = {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = azuread_application_password.function_auth_secret.value
     "WEBHOOK_SECRET" = azurerm_key_vault_secret.webhook.value
+    "GH_TOKEN" = azurerm_key_vault_secret.token.value
+    "ADMINPASS" = azurerm_key_vault_secret.adminpass.value
 #    "WEBSITE_LOCAL_CACHE_OPTION" = "Never"
 #    "WEBSITE_FUNCTIONS_ARMCACHE_ENABLED" = "0"
   }
@@ -182,14 +184,16 @@ from azure.mgmt.compute.models import VirtualMachinePriorityTypes, VirtualMachin
 SUFFIX = datetime.datetime.now().strftime("%H%M%S")
 # Required for terraform-python compatibility
 true = True
+## Secret variables we pass in via env
+JWT_SECRET = os.environ.get("WEBHOOK_SECRET")
+GH_PAT = os.environ.get("GH_TOKEN")
+ADMIN_PASS = os.environ.get("ADMINPASS")
+## Remainging vars are 'hard-coded' into the built python object
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
-JWT_SECRET = os.environ.get("WEBHOOK_SECRET")
 LOCATION = "${var.location}"
 VM_SIZE = "${var.vm_size}"
-GH_PAT = '${var.token}'
 REPO_NAME = '${var.repo_name}'
-ADMIN_PASS = "${var.adminpass}"
 MKT_OPT = '${var.mkt_opt}'
 REGION = "${var.location}"
 NAME = "Github-runner-"
