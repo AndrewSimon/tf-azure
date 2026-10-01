@@ -17,6 +17,7 @@ resource "azurerm_key_vault" "vault" {
   sku_name                   = "standard"
 #  soft_delete_retention_days = 7
 
+# This is for you on command-line
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
     object_id = local.current_user_id
@@ -24,6 +25,17 @@ resource "azurerm_key_vault" "vault" {
     key_permissions    = ["List", "Create", "Delete", "Get", "Purge", "Recover", "Update", "GetRotationPolicy", "SetRotationPolicy"]
     secret_permissions = ["Set", "Get", "List", "Delete", "Purge", "Recover"]
   }
+
+# This is for OIDC in GH Actions 
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = azurerm_user_assigned_identity.github_oidc.principal_id
+
+    key_permissions    = ["List", "Create", "Delete", "Get", "Purge", "Recover", "Update", "GetRotationPolicy", "SetRotationPolicy"]
+    secret_permissions = ["Set", "Get", "List", "Delete", "Purge", "Recover"]
+  }
+
+
 }
 
 resource "azurerm_key_vault_key" "key" {
