@@ -9,13 +9,13 @@ os_type = "Linux"
 }
 
 # 1. App registration with Entra ID and Password below it
-resource "azuread_application" "function_auth" {
-  display_name     = "tlc-function-app-auth"
-  sign_in_audience = "AzureADMyOrg"
-}
-resource "azuread_application_password" "function_auth_secret" {
-  application_id = azuread_application.function_auth.id
-}
+#resource "azuread_application" "function_auth" {
+#  display_name     = "tlc-function-app-auth"
+#  sign_in_audience = "AzureADMyOrg"
+#}
+#resource "azuread_application_password" "function_auth_secret" {
+#  application_id = azuread_application.function_auth.id
+#}
 
 # Assign the Contributor role to the Function App's identity
 resource "azurerm_role_assignment" "contributor" {
