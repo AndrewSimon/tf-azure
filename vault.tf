@@ -22,7 +22,7 @@ resource "azurerm_key_vault" "vault" {
     object_id = local.current_user_id
 
     key_permissions    = ["List", "Create", "Delete", "Get", "Purge", "Recover", "Update", "GetRotationPolicy", "SetRotationPolicy"]
-    secret_permissions = ["Set", "Get", "List", "Delete", "Purge"]
+    secret_permissions = ["Set", "Get", "List", "Delete", "Purge", "Recover"]
   }
 }
 
