@@ -104,6 +104,8 @@ resource "azurerm_storage_account" "demo" {
   location                 = azurerm_resource_group.demo.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
+   # Set this argument to true to allow blob public access
+  allow_nested_items_to_be_public = true
 }
 
 resource "azurerm_storage_container" "function_code_container" {
