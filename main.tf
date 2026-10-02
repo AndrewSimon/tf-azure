@@ -44,6 +44,8 @@ data "azuread_client_config" "current" {}
 
 data "azurerm_location" "current" { location = var.location }
 
+data "azurerm_subscription" "current" {}
+
 # We need to grant access to our manyally created terraform state storage
 data "azurerm_resource_group" "terraform_state" {
   name = "terraform-state" # Replace with your Terraform State stroage RG name
@@ -65,17 +67,13 @@ resource "azuread_directory_role_assignment" "github_oidc_ad_access" {
 }
 
 # 3. Assign the RBAC Administrator role to your GitHub OIDC Managed Identity
-resource "azurerm_role_assignment" "rbac_admin" {
-  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/DemoResourceGroup/providers/Microsoft.Web/sites/tlc-function-app/providers/Microsoft.Authorization/roleAssignments"
+resource "azurerm_role_assignment" "rbac_admin_assignment" {
+  scope                = data.azurerm_subscription.current.id
   role_definition_name = "Role Based Access Control Administrator"
   principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
-
-  # Optional: Restrict this identity so it can only assign specific roles if desired
-  # condition_version = "2.0"
-  # condition         = "..." 
-  depends_on = [
-    azurerm_user_assigned_identity.github_oidc,
-  ]
+  
+  # Best Practice: Explicitly declare the type of principal to prevent internal lookup delays
+  principal_type       = "ServicePrincipal" 
 }
 # This was already active. Activation can be done, or use import, as needed
 data "azurerm_role_definition" "vm_contributor" {
