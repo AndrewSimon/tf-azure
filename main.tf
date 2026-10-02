@@ -64,6 +64,19 @@ resource "azuread_directory_role_assignment" "github_oidc_ad_access" {
   ]
 }
 
+# 3. Assign the RBAC Administrator role to your GitHub OIDC Managed Identity
+resource "azurerm_role_assignment" "rbac_admin" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Role Based Access Control Administrator"
+  principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
+
+  # Optional: Restrict this identity so it can only assign specific roles if desired
+  # condition_version = "2.0"
+  # condition         = "..." 
+  depends_on = [
+    azurerm_user_assigned_identity.github_oidc,
+  ]
+}
 # This was already active. Activation can be done, or use import, as needed
 data "azurerm_role_definition" "vm_contributor" {
   name = "Virtual Machine Contributor"
