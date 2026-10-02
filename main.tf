@@ -66,7 +66,7 @@ resource "azuread_directory_role_assignment" "github_oidc_ad_access" {
 
 # 3. Assign the RBAC Administrator role to your GitHub OIDC Managed Identity
 resource "azurerm_role_assignment" "rbac_admin" {
-  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/DemoResourceGroup/providers/Microsoft.Web/sites/tlc-function-app/providers/Microsoft.Authorization/roleAssignments"
   role_definition_name = "Role Based Access Control Administrator"
   principal_id         = azurerm_user_assigned_identity.github_oidc.principal_id
 
