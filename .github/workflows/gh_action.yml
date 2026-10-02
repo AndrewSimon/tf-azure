@@ -52,6 +52,7 @@ jobs:
       - name: Terraform Destroy
         id: destroy
         run: |
+          touch function_app.py
           terraform destroy -auto-approve -refresh=false -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target azurerm_function_app_flex_consumption.demo
           # terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
   complete-lifecycle:
