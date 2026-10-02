@@ -30,9 +30,19 @@ jobs:
       - name: Install dependencies to be able to test function_app.py build 
         run: |
           python -m pip install --upgrade pip
-          pip install urllib3 PyJWT cryptography azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-functions
+          pip install urllib3 PyJWT cryptography azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-functions azure-keyvault-secrets
           pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+          # Install the Microsoft package repository GPG key
+          curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
+          sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
 
+          # Add the official Microsoft APT source list for Ubuntu
+          sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
+
+          # Update APT and install the latest Core Tools (v4)
+          sudo apt-get update
+          sudo apt-get install azure-functions-core-tools-4
+          
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
