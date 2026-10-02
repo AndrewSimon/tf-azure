@@ -35,7 +35,7 @@ resource "azurerm_key_vault" "vault" {
     secret_permissions = ["Set", "Get", "List", "Delete", "Purge", "Recover"]
   }
 
-
+  rbac_authorization_enabled = false
 }
 
 resource "azurerm_key_vault_key" "key" {
