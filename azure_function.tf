@@ -244,9 +244,6 @@ def verify_signature(body: bytes, header_signature: str) -> bool:
     # Constant-time comparison to prevent timing attacks
     return hmac.compare_digest(expected_signature, header_signature)
 
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
-@app.route(route="launch_vm", auth_level=func.AuthLevel.ANONYMOUS)
-
 def cleanup_network_resources():
     """Deletes the NIC and Public IP if the VM deployment fails."""
     print("Initiating cleanup of network resources...")
@@ -268,6 +265,9 @@ def cleanup_network_resources():
         print("Public IP successfully deleted.")
     except Exception as e:
         print(f"Failed to delete Public IP: {e}")
+
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="launch_vm", auth_level=func.AuthLevel.ANONYMOUS)
 
 def launch_vm(req: func.HttpRequest) -> func.HttpResponse:
     """
