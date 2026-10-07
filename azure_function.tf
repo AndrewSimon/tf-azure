@@ -245,28 +245,6 @@ def verify_signature(body: bytes, header_signature: str) -> bool:
     # Constant-time comparison to prevent timing attacks
     return hmac.compare_digest(expected_signature, header_signature)
 
-def cleanup_network_resources():
-    """Deletes the NIC and Public IP if the VM deployment fails."""
-    print("Initiating cleanup of network resources...")
-    
-    # Step 1: Delete the Network Interface (NIC)
-    try:
-        print(f"Deleting NIC: {NIC_NAME}...")
-        nic_poller = network_client.network_interfaces.begin_delete(RESOURCE_GROUP, NIC_NAME)
-        nic_poller.result() # Wait for deletion to complete
-        print("NIC successfully deleted.")
-    except Exception as e:
-        print(f"Failed to delete NIC (or it didn't exist): {e}")
-
-    # Step 2: Delete the Public IP (can only be done after NIC is deleted/disassociated)
-    try:
-        print(f"Deleting Public IP: {IP_NAME}...")
-        ip_poller = network_client.public_ip_addresses.begin_delete(RESOURCE_GROUP, IP_NAME)
-        ip_poller.result() # Wait for deletion to complete
-        print("Public IP successfully deleted.")
-    except Exception as e:
-        print(f"Failed to delete Public IP: {e}")
-
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 @app.route(route="launch_vm", auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -483,14 +461,15 @@ EOF
       )
       return func.HttpResponse(f"VM creation started: {VM_NAME}")
     except Exception as e:
-        logger.info(f"Deleting NIC: {NIC_NAME}...")
+        """Deletes the NIC and Public IP if the VM deployment fails."""
+        logger.info(f"VM Creation failed! Deleting orphaned NIC: {NIC_NAME}...")
         nic_poller = network_client.network_interfaces.begin_delete(RESOURCE_GROUP, NIC_NAME)
         nic_poller.result() # Wait for deletion to complete
         logger.info("NIC successfully deleted.")
-        print(f"Deleting Public IP: {IP_NAME}...")
+        logger.info(f"Deleting Public IP: {IP_NAME}...")
         ip_poller = network_client.public_ip_addresses.begin_delete(RESOURCE_GROUP, IP_NAME)
         ip_poller.result() # Wait for deletion to complete
-        logger.info("Public IP successfully deleted.")
+        logger.info("Orphaned Public IP successfully deleted.")
         return func.HttpResponse(str(e), status_code=500)
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
