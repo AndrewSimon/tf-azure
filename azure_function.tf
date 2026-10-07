@@ -212,8 +212,9 @@ UAI_ID = "${azurerm_user_assigned_identity.vm_identity.id}"
 IDENTITY_RESOURCE_ID = (
     f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-vm-contributor"
 )
-## While the function is inline python code sourced by terraform, this inline 
-## cloud-init user-data, also in terraform, is sourced by the python function
+
+logger = logging.getLogger("azure")
+logger.setLevel(logging.INFO)
 
 def is_valid_base64(encoded_str):
     """
@@ -482,14 +483,14 @@ EOF
       )
       return func.HttpResponse(f"VM creation started: {VM_NAME}")
     except Exception as e:
-        print(f"Deleting NIC: {NIC_NAME}...")
+        logger.info(f"Deleting NIC: {NIC_NAME}...")
         nic_poller = network_client.network_interfaces.begin_delete(RESOURCE_GROUP, NIC_NAME)
         nic_poller.result() # Wait for deletion to complete
-        print("NIC successfully deleted.")
+        logger.info("NIC successfully deleted.")
         print(f"Deleting Public IP: {IP_NAME}...")
         ip_poller = network_client.public_ip_addresses.begin_delete(RESOURCE_GROUP, IP_NAME)
         ip_poller.result() # Wait for deletion to complete
-        print("Public IP successfully deleted.")
+        logger.info("Public IP successfully deleted.")
         return func.HttpResponse(str(e), status_code=500)
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
