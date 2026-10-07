@@ -83,6 +83,8 @@ jobs:
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
+        # Sets the execution time limit for this specific job to 1 hour
+    timeout-minutes: 60 # A way to controi costs
     continue-on-error: true # ALL jobs need this to reach runner hook's lifecycle
     environment: public 
 #    permissions:
@@ -96,10 +98,76 @@ jobs:
            # Requires port 8000 opened in ASG first
            # import os, http.server; open("index.html", "w").write("<h1>Hello From TLC GitLab Self-Hosted Runner</h1>"); http.server.test(HandlerClass=http.server.SimpleHTTPRequestHandler, port=8000)
            import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);
-      - name: Run bash shell and print a command out
+      - name: Run bash shell and print a command out (Install and configure k3s)
+        continue-on-error: true 
         shell: bash
         run:  |
                date
-               
+               # K8s port for .kube/config
+               # sudo firewall-cmd --permanent --add-port=6443/tcp
+               # Standard HTTPS Port
+               # sudo firewall-cmd --permanent --add-port=443/tcp
+               # NodePort patch for headlamp service
+               # sudo firewall-cmd --permanent --add-port=30443/tcp
+               # sudo firewall-cmd --reload
+               # TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+               IP=$(curl -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-04-02&format=text")
+               FQDN=$(hostname -f)
+               echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
+               curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+               curl -sfL https://get.k3s.io | sh -s - server --tls-san $IP
+               # curl -sfL https://get.k3s.io | sh -s - server
+               sudo systemctl start k3s
+               systemctl status k3s.service
+               sudo mkdir /root/.kube /home/azureuser/.kube/ || true
+               sudo cp /etc/rancher/k3s/k3s.yaml /root/.kube/config
+               sudo cp /etc/rancher/k3s/k3s.yaml /home/azureuser/.kube/config
+               sudo chown -R azureuser:azureuser /home/azureuser/.kube
+               # Make k3s.yaml available for download to end-user
+               sudo cp /etc/rancher/k3s/k3s.yaml /tmp
+               # Make users' k3s.yaml use public IP
+               sudo sed -i "s/127.0.0.1/$IP/g" /tmp/k3s.yaml
+               sudo chmod 777 /tmp/k3s.yaml
+               # Ready node takes ~30 seconds 
+               sleep 15
+               sudo bash -c "/usr/local/bin/kubectl get node"
+               [ ! -f "/usr/local/bin/helm" ] && curl -C - -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
+               chmod 777 get_helm.sh
+               [ ! -f "/usr/local/bin/helm" ] && ./get_helm.sh ||true
+     
+
+      - name: Install Helm
+        continue-on-error: true
+        id: helm-install  
+        shell: bash
+        run:  |     
+              sudo apt-get install curl gpg apt-transport-https --yes
+              curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+              echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+              sudo apt-get update -y && sudo apt-get -y install helm    
+
+      - name: Run Helm Headlamp install
+        continue-on-error: true
+        id: headlamp-step      
+        shell: bash
+        run:  |
+               TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+               export FQDN=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/public-hostname)    
+               /usr/local/bin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
+               /usr/local/bin/helm repo update
+               /usr/local/bin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
+               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
+               echo "Copy and paste the following on your local device command-line:"
+               echo "mkdir ~/.kube ; scp ec2-user@$FQDN:/tmp/k3s.yaml ~/.kube/config"
+               echo "kubectl create token headlamp --namespace kube-system"
+               echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
+               exit 0
+
+      - name: Run sleep 30 minutes to keep runner up
+        continue-on-error: true
+        id: sleep-step      
+        shell: bash
+        run:  sleep 1800
+       
 #  Lifecycle termination of node at job completion is an 'administrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
