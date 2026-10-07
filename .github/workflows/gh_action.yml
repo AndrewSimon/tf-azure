@@ -152,7 +152,7 @@ jobs:
         shell: bash
         run:  |
                TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-               export FQDN=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/public-hostname)    
+               export $(hostname -f)
                /usr/local/bin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
                /usr/local/bin/helm repo update
                /usr/local/bin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80

@@ -375,6 +375,7 @@ EOF
         "sku": {"name": "Standard"},
         "public_ip_allocation_method": "Static",
         "deleteOption": "Delete",
+        "dns_settings": { "domain_name_label": "tlc" }
       }
     )
     ip_result = ip_poller.result()
