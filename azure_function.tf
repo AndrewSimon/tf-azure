@@ -325,8 +325,8 @@ EOF
     ')
     echo "Number of pending jobs: $PENDING_COUNT"
     if (( $PENDING_COUNT == 0 )) ; then
-      echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
-      sleep 5
+      echo "No jobs pending, this runner is not needed, terminating in 1 hour!"
+      sleep 3540 # Set this to be a few ssconds less than your gh runner job timeout 
       TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
       curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
       exit 0
@@ -365,21 +365,22 @@ EOF
     network_client = NetworkManagementClient(credential, SUBSCRIPTION_ID)
     
     # Create Public IP
-#    print("Creating public IP address...")
-#    ip_poller = network_client.public_ip_addresses.begin_create_or_update(
-#      RESOURCE_GROUP,
-#      IP_NAME,
-#      {
-#        "location": LOCATION,
-#        "sku": {"name": "Standard"},
-#        "public_ip_allocation_method": "Static",
-#        "deleteOption": "Delete"
-#      }
-#    )
-#    ip_result = ip_poller.result()
+    print("Creating public IP address...")
+    ip_poller = network_client.public_ip_addresses.begin_create_or_update(
+      RESOURCE_GROUP,
+      IP_NAME,
+      {
+        "location": LOCATION,
+        "sku": {"name": "Standard"},
+        "public_ip_allocation_method": "Static",
+        "deleteOption": "Delete",
+      }
+    )
+    ip_result = ip_poller.result()
+    PUBLIC_IP = ip_result.id
     
     # Create NIC
-    print(f"Creating NIC without public IP: {NIC_NAME}")
+    print(f"Creating NIC with public IP: {NIC_NAME}")
     nic_poller = network_client.network_interfaces.begin_create_or_update(
       RESOURCE_GROUP,
       NIC_NAME,
@@ -390,13 +391,17 @@ EOF
             "name": "internal",
             "properties": {
               "subnet": {"id": SUBNET_ID},
+              "publicIPAddress": {
+                "id": PUBLIC_IP,
+                "properties": { "deleteOption": "Delete" }
+                },              
             }
           }],
         "NetworkSecurityGroup": {"id": NSG_ID}
-        }
+        }   
       }
     )
-## We don't need nic result as that value is derived below
+## We need don't need nic result to attach to vm if we know the id
 ##    nic_result = nic_poller.result()   
 
     # Create the VM
@@ -435,7 +440,9 @@ EOF
         },
          "networkProfile": {
             "networkInterfaces": [{
+              # Use hard-coded id so poller can be off
               "id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/{NIC_NAME}",
+              # "id": nic_result.id,
               "properties": {
                 "deleteOption": "Delete"
                 }
