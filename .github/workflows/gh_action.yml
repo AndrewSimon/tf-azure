@@ -65,11 +65,9 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-      - name: Terraform Plan
-        id: plan
-        run: |
-          touch function_app.py
-          terraform plan -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
+      - name: Terraform Destroy terraform_data.upload_function
+        id: delete-upload-function
+        run: terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
       - name: Terraform Apply and Python Build
         id: apply
         run: |
@@ -80,7 +78,7 @@ jobs:
       - name: Test function_app.py
         id: test
         run: |
-          python -v function_app.py  
+          python function_app.py  
       
   complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
