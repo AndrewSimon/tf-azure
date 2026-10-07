@@ -105,7 +105,7 @@ jobs:
                # sudo firewall-cmd --reload
                # TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
                IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
-               export FQDN=tlc.eastus2.cloudapp.azure.com
+               export FQDN=tlc-app.eastus2.cloudapp.azure.com
                echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                curl -sfL https://get.k3s.io | sh -s - server --tls-san $IP
@@ -144,7 +144,7 @@ jobs:
         id: headlamp-step      
         shell: bash
         run:  |
-               export FQDN=tlc.eastus2.cloudapp.azure.com
+               export FQDN=tlc-app.eastus2.cloudapp.azure.com
                /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
                /usr/sbin/helm repo update
                /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
