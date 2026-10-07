@@ -144,12 +144,11 @@ jobs:
         id: headlamp-step      
         shell: bash
         run:  |
-               TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
                export FQDN=tlc.eastus2.cloudapp.azure.com
-               /usr/local/bin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
-               /usr/local/bin/helm repo update
-               /usr/local/bin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
-               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
+               /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
+               /usr/sbin/helm repo update
+               /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
+               /usr/sbin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
                echo "Copy and paste the following on your local device command-line:"
                echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
                echo "kubectl create token headlamp --namespace kube-system"
