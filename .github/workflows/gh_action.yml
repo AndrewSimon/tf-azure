@@ -112,7 +112,7 @@ jobs:
                # sudo firewall-cmd --reload
                # TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
                IP=$(curl -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-04-02&format=text")
-               FQDN=$(hostname -f)
+               export FQDN=tlc.eastus2.cloudapp.azure.com
                echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                curl -sfL https://get.k3s.io | sh -s - server --tls-san $IP
@@ -152,13 +152,13 @@ jobs:
         shell: bash
         run:  |
                TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-               export $(hostname -f)
+               export FQDN=tlc.eastus2.cloudapp.azure.com
                /usr/local/bin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
                /usr/local/bin/helm repo update
                /usr/local/bin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
                /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
                echo "Copy and paste the following on your local device command-line:"
-               echo "mkdir ~/.kube ; scp ec2-user@$FQDN:/tmp/k3s.yaml ~/.kube/config"
+               echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
                echo "kubectl create token headlamp --namespace kube-system"
                echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
                exit 0
