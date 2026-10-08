@@ -156,7 +156,7 @@ jobs:
                echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
                exit 0
 
-     - name: Install Docker CE
+      - name: Install Docker CE
         shell: bash
         run: |
                date
