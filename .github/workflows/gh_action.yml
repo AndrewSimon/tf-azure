@@ -65,9 +65,10 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-      - name: Terraform Destroy terraform_data.upload_function
-        id: delete-upload-function
-        run: terraform destroy -refresh=false -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
+# This step needed when we need a new function app upload
+#      - name: Terraform Destroy terraform_data.upload_function
+#        id: delete-upload-function
+#        run: terraform destroy -refresh=false -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
       - name: Terraform Apply and Python Build
         id: apply
         run: |
