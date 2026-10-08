@@ -209,6 +209,10 @@ jobs:
                newgrp docker
 
                docker --version
+               
+      - name: Run a local containerized Docker registry
+        shell: bash
+        run: docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2  
       
       - name: Make workdir, create Dockerfile, build our app container 
         shell: bash
@@ -220,6 +224,9 @@ jobs:
                sudo docker build -t tlc-alpine-app .
                # Show new container is alpine, not ubuntu server
                sudo docker run --rm tlc-alpine-app cat /etc/os-release               
+               
+               docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
+               docker push localhost:5000/tlc-alpine-app:latest
                
       - name: Run sleep 30 minutes to keep runner up
         continue-on-error: true
