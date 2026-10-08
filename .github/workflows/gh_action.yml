@@ -106,7 +106,7 @@ jobs:
                # sudo firewall-cmd --reload
                # TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
                IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
-               export FQDN=tlc-app.eastus2.cloudapp.azure.com
+               export FQDN=tlc.eastus2.cloudapp.azure.com
                echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                curl -sfL https://get.k3s.io | sh -s - server --tls-san $IP
@@ -140,12 +140,12 @@ jobs:
               echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
               sudo apt-get update -y && sudo apt-get -y install helm    
 
-      - name: Run Helm Headlamp install
+      - name: Run Headlamp install
         continue-on-error: true
         id: headlamp-step      
         shell: bash
         run:  |
-               export FQDN=tlc-app.eastus2.cloudapp.azure.com
+               export FQDN=tlc.eastus2.cloudapp.azure.com
                /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
                /usr/sbin/helm repo update
                /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
@@ -156,6 +156,71 @@ jobs:
                echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
                exit 0
 
+     - name: Install Docker CE
+        shell: bash
+        run: |
+               date
+               id
+               set -e # Exit immediately with any non-0 exit
+
+
+               echo "========================================="
+               echo "   Installing Docker on Ubuntu Server    "
+               echo "========================================="
+
+               # 1. Update the apt package index and install prerequisites
+               echo "--> Updating package index and installing prerequisites..."
+               sudo apt-get update -y
+               sudo apt-get install -y ca-certificates curl gnupg
+
+               # 2. Add Docker's official GPG key
+               echo "--> Adding Docker's official GPG key..."
+               sudo install -m 0755 -d /etc/apt/keyrings
+               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/docker.gpg
+               sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+               # 3. Set up the Docker repository
+               echo "--> Setting up the Docker repository..."
+               echo \
+                 "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+                 $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+                 sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+               # 4. Update the package index again with Docker packages included
+               echo "--> Updating package index with Docker repository..."
+               sudo apt-get update -y
+
+               # 5. Install Docker Engine, CLI, containerd, and Docker Compose
+               echo "--> Installing Docker packages..."
+               sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+               # 6. Verify the installation
+               echo "--> Verifying installation..."
+               sudo docker --version
+               sudo docker compose version
+
+               echo "========================================="
+               echo "      Docker Installed Successfully      "
+               echo "========================================="
+
+               # 7. Post-installation step to run Docker without sudo
+               echo "--> Adding $USER to the docker group..."
+               sudo usermod -aG docker azureuser
+               newgrp docker
+
+               docker --version
+      
+      - name: Make workdir, create Dockerfile, build our app container 
+        shell: bash
+        run: | 
+               mkdir alpine-build && cd alpine-build
+               echo "FROM alpine:latest" > Dockerfile
+               echo "RUN apk add --no-cache bash" >> Dockerfile
+               echo "CMD [\"/bin/bash\"]" >> Dockerfile
+               sudo docker build -t tlc-alpine-app .
+               # Show new container is alpine, not ubuntu server
+               sudo docker run --rm tlc-alpine-app cat /etc/os-release               
+               
       - name: Run sleep 30 minutes to keep runner up
         continue-on-error: true
         id: sleep-step      
