@@ -225,8 +225,8 @@ jobs:
                # Show new container is alpine, not ubuntu server
                sudo docker run --rm tlc-alpine-app cat /etc/os-release               
                
-               docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
-               docker push localhost:5000/tlc-alpine-app:latest
+               sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
+               sudo docker push localhost:5000/tlc-alpine-app:latest
                
       - name: Run sleep 30 minutes to keep runner up
         continue-on-error: true
