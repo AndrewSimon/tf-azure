@@ -212,7 +212,7 @@ jobs:
                
       - name: Run a local containerized Docker registry
         shell: bash
-        run: docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2  
+        run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2  
       
       - name: Make workdir, create Dockerfile, build our app container 
         shell: bash
