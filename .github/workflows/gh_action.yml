@@ -235,14 +235,14 @@ jobs:
         id: cred-step      
         shell: bash
         run: |
-              echo "************************************"
-              echo ""
-              echo " copy and paste headlamp token to http://$FQDN:30443 "
-              kubectl create token headlamp --namespace kube-system
-              echo ""             
-              echo " copy and paste kubeconfig to ~/.kube/config "            
-              cat /tmp/k8s.yaml
-              echo ""
+             echo "************************************"
+             echo ""
+             echo " copy and paste headlamp token to http://$FQDN:30443 "
+             kubectl create token headlamp --namespace kube-system
+             echo ""             
+             echo " copy and paste kubeconfig to ~/.kube/config "            
+             cat /tmp/k8s.yaml
+             echo ""
              echo "************************************"
 
       - name: Run sleep 30 minutes to keep runner up
