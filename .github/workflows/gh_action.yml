@@ -125,11 +125,6 @@ jobs:
                sudo chmod 777 /tmp/k3s.yaml
                # Ready node takes ~30 seconds 
                sleep 15
-               sudo bash -c "/usr/local/bin/kubectl get node"
-               [ ! -f "/usr/sbin/helm" ] && curl -C - -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
-               chmod 777 get_helm.sh
-               [ ! -f "/usr/sbin/helm" ] && ./get_helm.sh ||true
-     
 
       - name: Install Helm
         continue-on-error: true
@@ -137,8 +132,8 @@ jobs:
         shell: bash
         run:  |     
               sudo apt-get install curl gpg apt-transport-https --yes
-              curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-              echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+              [ ! -f "/usr/sbin/helm" ] && curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+              [ ! -f "/usr/sbin/helm" ] && echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
               sudo apt-get update -y && sudo apt-get -y install helm    
 
       - name: Run Headlamp install
@@ -217,7 +212,7 @@ jobs:
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2  
       
-      - name: Make workdir, create Dockerfile, build our app container 
+      - name: Create workdir and Dockerfile, run example docker app build
         shell: bash
         run: | 
                mkdir alpine-build && cd alpine-build
@@ -242,10 +237,19 @@ jobs:
              /usr/local/bin/kubectl create ns tlc || true
              /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
 
+      - name: Deploy redis
+        continue-on-error: true
+        id: k3s-redis-deploy      
+        shell: bash
+        run: |
+             /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
+             /usr/sbin/helm repo update
+             /usr/sbin/helm install redis bitnami/redis --namespace tlc
+
       - name: Get credentials
         continue-on-error: true
         id: cred-step      
-        shell: bash
+        seell: bash
         run: |
              echo "************************************"
              echo ""
