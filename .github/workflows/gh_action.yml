@@ -154,7 +154,9 @@ jobs:
                echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
                echo "kubectl create token headlamp --namespace kube-system"
                echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
-               exit 0
+               
+               kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
+               
 
       - name: Install Docker CE
         shell: bash
@@ -226,8 +228,23 @@ jobs:
                sudo docker run --rm tlc-alpine-app cat /etc/os-release               
                
                sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
-               sudo docker push localhost:5000/tlc-alpine-app:latest
-               
+               sudo docker push localhost:5000/tlc-alpine-app:latest     
+      
+      - name: Get credentials
+        continue-on-error: true
+        id: cred-step      
+        shell: bash
+        run: |
+              echo "************************************"
+              echo ""
+              echo " copy and paste headlamp token to http://$FQDN:30443 "
+              kubectl create token headlamp --namespace kube-system
+              echo ""             
+              echo " copy and paste kubeconfig to ~/.kube/config "            
+              cat /tmp/k8s.yaml
+              echo ""
+             echo "************************************"
+
       - name: Run sleep 30 minutes to keep runner up
         continue-on-error: true
         id: sleep-step      
