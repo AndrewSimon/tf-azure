@@ -13,9 +13,10 @@ env:
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
   ARM_USE_OIDC: "true"
+  FQDN: tlc.eastus2.cloudapp.azure.com
 
 jobs:
-  terraform-plan:
+  infrastructure:
     runs-on: ubuntu-latest
     environment: public
     steps:
@@ -81,7 +82,7 @@ jobs:
         run: |
           python function_app.py  
       
-  complete-lifecycle:
+  app:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
     runs-on: self-hosted
         # Sets the execution time limit for this specific job to 1 hour
@@ -106,7 +107,7 @@ jobs:
                # sudo firewall-cmd --reload
                # TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
                IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
-               export FQDN=tlc.eastus2.cloudapp.azure.com
+               export FQDN=${{ env.FQDN }}
                echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                curl -sfL https://get.k3s.io | sh -s - server --tls-san $IP
@@ -145,7 +146,7 @@ jobs:
         id: headlamp-step      
         shell: bash
         run:  |
-               export FQDN=tlc.eastus2.cloudapp.azure.com
+               export FQDN=${{ env.FQDN }}
                /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
                /usr/sbin/helm repo update
                /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
@@ -229,6 +230,9 @@ jobs:
                
                sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
                sudo docker push localhost:5000/tlc-alpine-app:latest     
+      # Need to checkout code again, this time for the k3s assets
+      - name: Checkout Code
+        uses: actions/checkout@v4      
       
       - name: Deploy tlc-alpine-app to k3s
         continue-on-error: true
@@ -245,12 +249,9 @@ jobs:
         run: |
              echo "************************************"
              echo ""
-             echo " copy and paste headlamp token to http://$FQDN:30443 "
+             echo " copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
              /usr/local/bin/kubectl create token headlamp --namespace kube-system
              echo ""             
-             echo " copy and paste kubeconfig to ~/.kube/config "            
-             cat /tmp/k3s.yaml
-             echo ""
              echo "************************************"
 
       - name: Run sleep 30 minutes to keep runner up
