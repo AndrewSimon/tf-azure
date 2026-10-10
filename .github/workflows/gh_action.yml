@@ -230,6 +230,14 @@ jobs:
                sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
                sudo docker push localhost:5000/tlc-alpine-app:latest     
       
+      - name: Deploy tlc-alpine-app to k3s
+        continue-on-error: true
+        id: k3s-alpine-deploy      
+        shell: bash
+        run: |
+             /usr/local/bin/kubectl create ns tlc || true
+             /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
+
       - name: Get credentials
         continue-on-error: true
         id: cred-step      
@@ -238,10 +246,10 @@ jobs:
              echo "************************************"
              echo ""
              echo " copy and paste headlamp token to http://$FQDN:30443 "
-             kubectl create token headlamp --namespace kube-system
+             /usr/local/bin/kubectl create token headlamp --namespace kube-system
              echo ""             
              echo " copy and paste kubeconfig to ~/.kube/config "            
-             cat /tmp/k8s.yaml
+             cat /tmp/k3s.yaml
              echo ""
              echo "************************************"
 
