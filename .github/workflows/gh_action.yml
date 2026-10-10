@@ -251,10 +251,11 @@ jobs:
         id: cred-step      
         shell: bash
         run: |
+             IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
              echo "************************************"
              echo ""
              echo " copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
-             /usr/local/bin/kubectl create token headlamp --namespace kube-system
+             echo " to get token, run: ssh azureuser@$IP -n "/usr/local/bin/kubectl create token headlamp --namespace kube-system""
              echo ""             
              echo "************************************"
 
