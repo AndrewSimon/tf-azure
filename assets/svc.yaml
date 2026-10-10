@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tlc-web-content
+  namespace: tlc
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>TLC Alpine App</title>
+        <style>
+            body { font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card { background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+            h1 { color: #0076ff; margin-bottom: 0.5rem; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>Welcome to TLC Alpine App</h1>
+            <p>We dynamically provisioned a gh runner that became a k3s server via tf-azure!</p>
+            <p>Once provisioned, we deployed this python based web server via Python based Function App trigger!</p>
+        </div>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tlc-alpine-app
+  namespace: tlc
+  labels:
+    app: tlc-alpine-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tlc-alpine-app
+  template:
+    metadata:
+      labels:
+        app: tlc-alpine-app
+    spec:
+      containers:
+      - name: alpine-app
+        image: localhost:5000/tlc-alpine-app:latest
+        command: ["python3"]
+        args: ["-m", "http.server", "80"]
+        ports:
+        - containerPort: 80
+        # Mount the index.html file into the container's working directory
+        volumeMounts:
+        - name: html-volume
+          mountPath: /index.html
+          subPath: index.html
+      volumes:
+      - name: html-volume
+        configMap:
+          name: tlc-web-content
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tlc-alpine-service
+  namespace: tlc
+spec:
+  selector:
+    app: tlc-alpine-app
+  ports:
+  - protocol: TCP
+    port: 80          
+    targetPort: 80     
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tlc-alpine-ingress
+  namespace: tlc
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: tlc-alpine-service
+            port:
+              number: 80
+
