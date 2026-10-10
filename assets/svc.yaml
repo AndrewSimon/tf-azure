@@ -91,4 +91,3 @@ spec:
             name: tlc-alpine-service
             port:
               number: 80
-
