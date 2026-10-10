@@ -249,7 +249,7 @@ jobs:
       - name: Get credentials
         continue-on-error: true
         id: cred-step      
-        seell: bash
+        shell: bash
         run: |
              echo "************************************"
              echo ""
