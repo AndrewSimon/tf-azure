@@ -221,7 +221,7 @@ jobs:
         run: | 
                mkdir alpine-build && cd alpine-build
                echo "FROM alpine:latest" > Dockerfile
-               echo "RUN apk add --no-cache bash" >> Dockerfile
+               echo "RUN apk add --no-cache bash python3" >> Dockerfile
                echo "CMD [\"/bin/bash\"]" >> Dockerfile
                sudo docker build -t tlc-alpine-app .
                # Show new container is alpine, not ubuntu server
