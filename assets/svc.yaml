@@ -20,8 +20,10 @@ data:
     <body>
         <div class="card">
             <h1>Welcome to TLC Alpine App</h1>
-            <p>We dynamically provisioned a gh runner that became a k3s server via tf-azure!</p>
-            <p>Once provisioned, we deployed this python based web server via Python based Function App trigger!</p>
+            <p>The tf-azure repo contains Azure IaC and a Github Actions Workflow that ran terraform to standup most of the Azure resources hosting this web page. 
+            It also stood up an Azure Function to dynamically provision a gh runner, which built this python server via Docker. The runner installed k3s onto itself 
+            to became a k3s kubernetes server.</p>
+            <p>Once the kubernetes (Rancher k3s) platform is provisioned, we used it to run this containerized python based web server, all via same workflow!</p>
         </div>
     </body>
     </html>
@@ -32,7 +34,7 @@ metadata:
   name: tlc-alpine-app
   namespace: tlc
   labels:
-    app: tlc-alpine-app
+    app: tlc-alpine-ap
 spec:
   replicas: 1
   selector:
