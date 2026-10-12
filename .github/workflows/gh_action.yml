@@ -210,7 +210,7 @@ jobs:
                
       - name: Run a local containerized Docker registry
         shell: bash
-        run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2  
+        run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
       
       - name: Create workdir and Dockerfile, run example docker app build
         shell: bash
