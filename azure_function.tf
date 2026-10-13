@@ -8,7 +8,7 @@ os_type = "Linux"
 	sku_name = "FC1" # Consumption plan
 }
 
-# App registration with Entra ID and Password below it
+# 1. App registration with Entra ID and Password below it
 resource "azuread_application" "function_auth" {
   display_name     = "tlc-function-app-auth"
   sign_in_audience = "AzureADMyOrg"
@@ -28,11 +28,11 @@ resource "azurerm_role_assignment" "contributor" {
 }
 
 # Place-holder for future dev
-resource "azurerm_role_assignment" "kudu_role" {
-  scope                = azurerm_function_app_flex_consumption.demo.id
-  role_definition_name = "Website Contributor"
-  principal_id         = data.azurerm_client_config.current.object_id
-}
+#resource "azurerm_role_assignment" "kudu_role" {
+#  scope                = azurerm_function_app_flex_consumption.demo.id
+#  role_definition_name = "Website Contributor"
+#  principal_id         = data.azurerm_client_config.current.object_id
+#}
 
 # Generate SAS token for function code blob authorization
 data "azurerm_storage_account_blob_container_sas" "sas" {
@@ -89,6 +89,9 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 
   app_settings = {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = azuread_application_password.function_auth_secret.value
+    "WEBHOOK_SECRET" = azurerm_key_vault_secret.webhook.value
+    "GH_TOKEN" = azurerm_key_vault_secret.token.value
+    "ADMINPASS" = azurerm_key_vault_secret.adminpass.value
 #    "WEBSITE_LOCAL_CACHE_OPTION" = "Never"
 #    "WEBSITE_FUNCTIONS_ARMCACHE_ENABLED" = "0"
   }
@@ -120,15 +123,15 @@ resource "azurerm_function_app_flex_consumption" "demo" {
 ## Additionally, this custom resource can manage the function life-cycle 
 ## independently from the flex app resource
 resource "terraform_data" "upload_function" {
-  triggers_replace = {
-    file_content_hash = filemd5("${path.module}/function_app.py")
-  }
+#  triggers_replace = {
+#    file_content_hash = filemd5("${path.module}/function_app.py")
+# }
   provisioner "local-exec" {
     # Use bash to run the command and stream last line every second
     command = <<EOT
       set -euo pipefail
       TMPFILE=/tmp/func.out
-      py -m venv .venv
+      # py -m venv .venv # Not needed on a GH hosted runner 
       # Run the long-running command in the background, redirecting stdout to file
       ( func azure functionapp publish tlc-function-app --python > "$TMPFILE" 2>&1 ) &
       CMD_PID=$!
@@ -181,14 +184,16 @@ from azure.mgmt.compute.models import VirtualMachinePriorityTypes, VirtualMachin
 SUFFIX = datetime.datetime.now().strftime("%H%M%S")
 # Required for terraform-python compatibility
 true = True
+## Secret variables we pass in via env
+JWT_SECRET = os.environ.get("WEBHOOK_SECRET")
+GH_PAT = os.environ.get("GH_TOKEN")
+ADMIN_PASS = os.environ.get("ADMINPASS")
+## Remainging vars are 'hard-coded' into the built python object
 SUBSCRIPTION_ID = "${data.azurerm_client_config.current.subscription_id}"
 RESOURCE_GROUP = "${azurerm_resource_group.demo.name}"
-JWT_SECRET = "${data.azurerm_key_vault_secret.webhook.value}"
 LOCATION = "${var.location}"
 VM_SIZE = "${var.vm_size}"
-GH_PAT = '${var.token}'
 REPO_NAME = '${var.repo_name}'
-ADMIN_PASS = "${var.adminpass}"
 MKT_OPT = '${var.mkt_opt}'
 REGION = "${var.location}"
 NAME = "Github-runner-"
@@ -207,8 +212,9 @@ UAI_ID = "${azurerm_user_assigned_identity.vm_identity.id}"
 IDENTITY_RESOURCE_ID = (
     f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-vm-contributor"
 )
-## While the function is inline python code sourced by terraform, this inline 
-## cloud-init user-data, also in terraform, is sourced by the python function
+
+logger = logging.getLogger("azure")
+logger.setLevel(logging.INFO)
 
 def is_valid_base64(encoded_str):
     """
@@ -320,8 +326,8 @@ EOF
     ')
     echo "Number of pending jobs: $PENDING_COUNT"
     if (( $PENDING_COUNT == 0 )) ; then
-      echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
-      sleep 5
+      echo "No jobs pending, this runner is not needed, terminating in 1 hour!"
+      sleep 3540 # Set this to be a few ssconds less than your gh runner job timeout 
       TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
       curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
       exit 0
@@ -360,21 +366,22 @@ EOF
     network_client = NetworkManagementClient(credential, SUBSCRIPTION_ID)
     
     # Create Public IP
-#    print("Creating public IP address...")
-#    ip_poller = network_client.public_ip_addresses.begin_create_or_update(
-#      RESOURCE_GROUP,
-#      IP_NAME,
-#      {
-#        "location": LOCATION,
-#        "sku": {"name": "Standard"},
-#        "public_ip_allocation_method": "Static",
-#        "deleteOption": "Delete"
-#      }
-#    )
-#    ip_result = ip_poller.result()
+    print("Creating public IP address...")
+    ip_poller = network_client.public_ip_addresses.begin_create_or_update(
+      RESOURCE_GROUP,
+      IP_NAME,
+      {
+        "location": LOCATION,
+        "sku": {"name": "Standard"},
+        "public_ip_allocation_method": "Static",
+        "deleteOption": "Delete",
+      }
+    )
+    ip_result = ip_poller.result()
+    PUBLIC_IP = ip_result.id
     
     # Create NIC
-    print(f"Creating NIC without public IP: {NIC_NAME}")
+    print(f"Creating NIC with public IP: {NIC_NAME}")
     nic_poller = network_client.network_interfaces.begin_create_or_update(
       RESOURCE_GROUP,
       NIC_NAME,
@@ -385,13 +392,17 @@ EOF
             "name": "internal",
             "properties": {
               "subnet": {"id": SUBNET_ID},
+              "publicIPAddress": {
+                "id": PUBLIC_IP,
+                "properties": { "deleteOption": "Delete" }
+                },              
             }
           }],
         "NetworkSecurityGroup": {"id": NSG_ID}
-        }
+        }   
       }
     )
-## We don't need nic result as that value is derived below
+## We need don't need nic result to attach to vm if we know the id
 ##    nic_result = nic_poller.result()   
 
     # Create the VM
@@ -430,7 +441,9 @@ EOF
         },
          "networkProfile": {
             "networkInterfaces": [{
+              # Use hard-coded id so poller can be off
               "id": f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/{NIC_NAME}",
+              # "id": nic_result.id,
               "properties": {
                 "deleteOption": "Delete"
                 }
@@ -448,8 +461,16 @@ EOF
       )
       return func.HttpResponse(f"VM creation started: {VM_NAME}")
     except Exception as e:
-      print("Error creating VM:", e)  
-      return func.HttpResponse(str(e), status_code=500)
+        """Deletes the NIC and Public IP if the VM deployment fails."""
+        logger.info(f"VM Creation failed! Deleting orphaned NIC: {NIC_NAME}...")
+        nic_poller = network_client.network_interfaces.begin_delete(RESOURCE_GROUP, NIC_NAME)
+        nic_poller.result() # Wait for deletion to complete
+        logger.info("NIC successfully deleted.")
+        logger.info(f"Deleting Public IP: {IP_NAME}...")
+        ip_poller = network_client.public_ip_addresses.begin_delete(RESOURCE_GROUP, IP_NAME)
+        ip_poller.result() # Wait for deletion to complete
+        logger.info("Orphaned Public IP successfully deleted.")
+        return func.HttpResponse(str(e), status_code=500)
   EOT
   file_permission = "0755" # Optional: set appropriate file permissions
 }

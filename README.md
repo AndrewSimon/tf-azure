@@ -1,19 +1,26 @@
 # TF-AZURE
-> Stands up some Azure resources in it's own resource group
+> This project works in 2 parts. The first part is the Infrastructure as Code provisioned vis Terraform, and the second part is the Github Actions Workflow contained within this project. The terraform plan must run on a local device first, and some manual setup, described later, is required for the first manual run of Terraform plan and apply to succeed.  The terraform plan will:
 
-This plan will:
 1.  Create a resource group for your 'demo' virtual network
 2.  Create 'demo' virtual network and 2 subnets, 1 'public' and 1 'private'
 3.  Create 2 NSG for the two subnets to restrict traffic, accordingly
-4.  Create a storage account and blob container for the Funcion App
-5.  Assign a public IP for a VM instance (when enabled, defaults to disabled)
-6.  Output the public IP so you can connect to your instance, if you enabled it
-7.  Creates a key vault, key policy, and password secret (PostgreSQL and/or VM login)
-8.  Creates a PostgreSQL Flexible server with public access and f/w rule
-9.  Creates an Azure Function to launch VMs dynamically (request VM quotas manually)
-10.  Creates a Github webhook with secret (stored in vault) and Azure API endpoint url
-11. Creates an analytics workspace and Insights components
-12. Creates an IAM (RBAC) user-assigned identity and role dynamic vms are assigned
+4.  Create a storage account and blob container for the Function App
+5.  Creates a static Virtual Machine with disk and os pre-configured, if enabled
+6.  Assign a public IP for a VM instance (when enabled, defaults to disabled)
+7.  Output the public IP so you can connect to your instance, if you enabled it
+8.  Creates a key vault, key policy, and password secret (PostgreSQL and/or VM login)
+9.  Creates a PostgreSQL Flexible server with IP f/w access rule, when db name set
+10. Creates an Azure Function to launch VMs dynamically (request VM quotas manually)
+11. Creates a Github webhook with secret (stored in vault) and Azure API endpoint url
+12. Creates an analytics workspace and Insights components
+13. Creates an IAM (RBAC) user-assigned identity and (admin) role for dynamic Self-Hosted runner VMs to use to self-delete
+14. Creates an IAM (RBAC) user-assigned identity for Github Hosted Actions Runner OIDC clients with (admin) permission to use for terraform
+
+>The second part of the project is the Github Actions Workflow, which consists of two configurable jobs, plus the job completion hook:.  
+
+1. The first job is more-or-less OPTIONAL. It runs the exact same terraform plan you just ran by hand first 
+2. The second job of the Github Actions workflow is the 'complete-lifecycle' job, where the running of arbitrary workflow steps, such as a docker-in-docker build server or a k8s server can be installed and added as jobs or new pipelines
+3. The end of job 2 triggers the ACTIONS_RUNNER_HOOK_JOB_COMPLETED script installed by the Function App at VM launch
 
 ## Requirements
 > Install the following:
@@ -98,6 +105,9 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 --> After a terraform apply, be sure to refresh Azure portal screens before viewing/using data fields.
 
 
+## Run Terraform via TF-AZURE Github Actions Workflow
+> As mentioned, the workflow is in two jobs.  The first job fails on the first run because none of the resources for job one to run properly have been created yet.  Once run successfully manually, the resource group, managed identities, the Function App Flex Plan SKU, Insights monitoring, and many other resources are created or configured  Once the first manual terraform apply  is run, subsequent invocations of job one of the workflow work properly.  Simply push a repository update to trigger both terraform and runner jobs.  Now the 'pipeline' is wokring and completed, there is no longer a need to run the terraform in this project on command-line!
+
 ## Postgresql
 >By default the public IP option is enabled, but only your PC (e.g. the PC running terraform) gets firewall access without additional coding.  Login example, enter password when prompted:
 
@@ -113,15 +123,17 @@ Note: due to Azure vault design, destroying vault purges secrets, which awaits a
 ## Trouble-shooting
     
    1. If 'no file exists at ./function_app.py' or 'file not found': run 'touch function_app.py' then re-run 'terraform apply/destroy'.  
-   2. I file is 'inconsistent' or Function app is created but not the function: re-run terraform apply.
+   2. File is 'inconsistent' or Function app is created but not the function: re-run terraform apply.
    3. The upload function runs but there is still no function in the function app:  check for missing dependencies.  Try running 'pip install -r requirements.txt' then re-run terraform apply.
    4. Still no Azure Function and/or upload fails even though there are no errors in the function when running locally: delete the Function App manually through UI, run number 7 from above, <i>terraform destroy -target=terraform_data.upload_function</i>, then re-run terraform apply.
    5. You manually deleted the webhook but terraform isn't recreating it: run terraform destroy -target=github_repository_webhook.tf_webhook
    6. If you successfully installed Function App Core Tools, you will be able to run <i>func start</i> in the tf-azure directory and start a local Function App. You can post data with curl, fiddler or other client to <i>http://localhost:7071/api/launch_vm</i> and output not directed to the client will come into the screen running <i>func start</i> as standard error and standard out.  Trouble-shoot locally, as able.
-   7. If your function uploads but gives error 500, it means your function ran (mostly) ok!  Likely a problem with the values python is getting from terraform, such as a password that does not meet minimum requirements, Azure quota limits on functions or VMs, capacity problems in your selected region, etc.
-   8. VM is running but not registering as a github runner: anything to do with registering or de-registering azure resources to/for the VM is via the user-data section of the embedded python code. Delete the Function App and the function_app.py file and re-run terraform apply.  Ensure the function uploads again.
-   9.  Return Code 429 from Github webhook response. This custom message: <b>UserData did not decode.  Azure needs a minute or two before providing another useful VM.</b> is provided via python definition to catch any user-data decode issue.  This is some sort of caching bug in Azure Function launch affecting decoding of the encoded VM user-data. It takes about 2 minutes for the Azure Function to be 'reset' on it's own sufficiently to be able to cleanly create a new VM. 
-   10. Unable to log into, or apps unable to connect to PostgreSQL: the code attempts to get ONLY YOUR ip address and add it to the f/w rules. It does not add any other IP addresses.  All other connections are blocked by default.  You can/should update the azure postgresql flex server 'network' options to add whatever additional addresses you need.  To add them to terraform to be permanent, add them manually first, then run 'terraform plan' to see the entries that will be <b>removed</b>.  Add those 'to-be-removed' entries to the firewall section of the postgresql.tf and re-run.  Repeat until the new entries are NOT removed by plan, then run terraform apply.
+   7. Return 401 Requires authentication [] on one or more secrets. Run <i>terraform apply -var=token=your_token</i> as exporting gh token as environment variable does not always work.
+   8. Return 404  Error: Assigning directory role. Re-run terraform apply
+   9. If your function uploads but gives error 500, it means your function ran (mostly) ok!  Likely a problem with the values python is getting from terraform, such as a password that does not meet minimum requirements, Azure quota limits on functions or VMs, capacity problems in your selected region, etc.  For osProfile.adminPassword error, you must reset password, and to do that, you must run terraform destroy -target=azurerm_key_vault_secret.adminpass first.
+   10. VM is running but not registering as a github runner: anything to do with registering or de-registering azure resources to/for the VM is via the user-data section of the embedded python code. Delete the Function App and the function_app.py file and re-run terraform apply.  Ensure the function uploads again.
+   11. Return Code 429 from Github webhook response. This custom message: <b>UserData did not decode.  Azure needs a minute or two before providing another useful VM.</b> is provided via python definition to catch any user-data decode issue.  This is some sort of caching bug in Azure Function launch affecting decoding of the encoded VM user-data. It takes about 2 minutes for the Azure Function to be 'reset' on it's own sufficiently to be able to cleanly create a new VM. 
+   12. Unable to log into, or apps unable to connect to PostgreSQL: the code attempts to get ONLY YOUR ip address and add it to the f/w rules. It does not add any other IP addresses.  All other connections are blocked by default.  You can/should update the azure postgresql flex server 'network' options to add whatever additional addresses you need.  To add them to terraform to be permanent, add them manually first, then run 'terraform plan' to see the entries that will be <b>removed</b>.  Add those 'to-be-removed' entries to the firewall section of the postgresql.tf and re-run.  Repeat until the new entries are NOT removed by plan, then run terraform apply.
 
 ## Costs
 
@@ -140,6 +152,7 @@ Most importantly, this plan is an easy and convenient way to deploy the infrastr
 Andrew Simon – asimon@technology-leadership.com
 
 Created 3-09-2026
-Updated 8-26-2026
+
+Updated 9-23-2026
 
 Distributed under the Apache 2.0 license.
