@@ -208,7 +208,7 @@ jobs:
 
                docker --version
                
-      - name: Run a local containerized Docker registry
+      - name: Run a local containerized Docker registry   
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
       
