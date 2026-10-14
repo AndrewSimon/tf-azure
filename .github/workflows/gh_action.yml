@@ -72,7 +72,7 @@ jobs:
 #        run: terraform destroy -refresh=false -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
       - name: Terraform Destroy Upload (only)
         id: destroy
-        run:          terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
+        run: terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
       
       - name: Terraform Apply and Python Build
         id: apply
@@ -248,7 +248,7 @@ jobs:
         run: |
              /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
              /usr/sbin/helm repo update
-             /usr/sbin/helm install redis bitnami/redis --namespace tlc
+             /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
 
       - name: Get credentials
         continue-on-error: true
