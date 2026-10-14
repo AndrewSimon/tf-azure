@@ -20,12 +20,15 @@ data:
     <body>
         <div class="card">
             <h1>Welcome to TLC Alpine App</h1>
-            <p>The tf-azure repo contains Azure IaC and a Github Actions Workflow that ran terraform to standup most of the Azure resources hosting this web page. 
-            It also stood up an Azure Function to dynamically provision a gh runner, which built this python server via Docker. The runner installed k3s onto itself 
-            to became a k3s kubernetes server.</p>
-            
-            <p>Once the kubernetes (Rancher k3s) platform is provisioned, we used it to run this containerized python based web server, all via same workflow!</p>
-            <p>If already provisioned, pushing this configmap update patches the configuration and updates the page automagically!</p>
+            <p>The tf-azure repo contains Azure IaC and a Github Actions Workflow</p> 
+            <p>The workflow is 2 jobs. The first job runs Terraform to standup most of the Azure resources hosting this web page.</p> 
+            <p>The terraform job also stood up an Azure Function to dynamically provision a gh self-hosted runner upon a repository push.</p>
+            <p>The self-hosted runner runs the second (non-Terraform) workflow job that is queued when you 'trigger' the action via push. 
+            <p>The second job builds this containerized python server via Docker on the gh runner.</p> 
+            <p>The runner then installed Rancher k3s onto itself to become a kubernetes server.</p> 
+            <p>Once the Rancher kubernetes platform is provisioned, we used it to run this containerized web server, all via same workflow!</p>
+            <p>If already provisioned, a configmap update and pod kill (via Headlamp, for instance) restarts the pod with an updated web page automagically!</p>
+            <p>Note any changes to configmaps or any other Kubernetes resources NOT committed to tf-azure is lost/overwritten with next deploy.
         </div>
     </body>
     </html>
