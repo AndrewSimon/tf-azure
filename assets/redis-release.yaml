@@ -19,7 +19,7 @@ spec:
     # Custom Helm overrides go here
     architecture: standalone # Options: standalone or replication
     auth:
-      enabled: true
+      enabled: false
       # It is best practice to pass existing secrets for passwords,
       # but Bitnami will auto-generate one if left blank.
     image: docker.io/bitnamilegacy/redis:7.2.5-debian-12-r4
