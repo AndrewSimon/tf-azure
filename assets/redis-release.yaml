@@ -2,7 +2,7 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: redis
-  namespace: flux-system
+  namespace: tlc
 spec:
   interval: 10m
   releaseName: redis
