@@ -22,3 +22,4 @@ spec:
       enabled: true
       # It is best practice to pass existing secrets for passwords,
       # but Bitnami will auto-generate one if left blank.
+    image: docker.io/bitnamilegacy/redis:7.2.5-debian-12-r4
