@@ -252,8 +252,8 @@ jobs:
         id: k3s-redis-deploy      
         shell: bash
         run: |
-             /usr/local/bin/kubectl -n tlc apply -f ./assets/redis-repo.yaml
-             /usr/local/bin/kubectl -n tlc apply -f ./assets/redis-release.yaml   
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
         
              # This is how to deploy without fluxdc
              #      /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
