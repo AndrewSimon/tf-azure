@@ -63,7 +63,7 @@ jobs:
 #    permissions:
 #      id-token: write # Required for OIDC authentication
 #      contents: read
-    steps:
+#   steps:
 #  Demo workflow. Replace the steps below with your actual workflow
 #      - name: Run Python shell commands to check os and node name, then sleep 30 seconds
 #        shell: python
