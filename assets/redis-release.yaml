@@ -15,7 +15,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: bitnami
-        namespace: flux-system
+        namespace: tlc
   values:
     # Custom Helm overrides go here
     architecture: standalone # Options: standalone or replication
