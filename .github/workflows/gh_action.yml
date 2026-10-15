@@ -55,24 +55,24 @@ jobs:
           touch function_app.py
           terraform destroy -auto-approve -refresh=false -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function -target azurerm_function_app_flex_consumption.demo
           # terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
-  complete-lifecycle:
+#  complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
-    runs-on: self-hosted
-    continue-on-error: true # ALL jobs need this to reach runner hook's lifecycle
-    environment: public 
+#    runs-on: self-hosted
+#    continue-on-error: true # ALL jobs need this to reach runner hook's lifecycle
+#    environment: public 
 #    permissions:
 #      id-token: write # Required for OIDC authentication
 #      contents: read
     steps:
 #  Demo workflow. Replace the steps below with your actual workflow
-      - name: Run Python shell commands to check os and node name, then sleep 30 seconds
-        shell: python
-        run:  |
-           import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);
-      - name: Run bash shell and print a command out
-        shell: bash
-        run:  |
-               date
+#      - name: Run Python shell commands to check os and node name, then sleep 30 seconds
+#        shell: python
+#        run:  |
+#           import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);
+#      - name: Run bash shell and print a command out
+#        shell: bash
+#        run:  |
+#               date
                
 #  Lifecycle termination of node at job completion is an 'administrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
