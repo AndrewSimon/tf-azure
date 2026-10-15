@@ -15,17 +15,17 @@ env:
   ARM_USE_OIDC: "true"
 
 jobs:
-  terraform-plan:
+  terraform-partial-destroy:
     runs-on: ubuntu-latest
     environment: public
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+ #     - name: Setup Python
+ #       uses: actions/setup-python@v5
+ #       with:
+ #         python-version: '3.11'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
@@ -41,9 +41,9 @@ jobs:
           environment: azurecloud
           allow-no-subscriptions: true
        
-      - name: Verify Login (Show Azure Account Details)
-        run: |
-          az account show
+#      - name: Verify Login (Show Azure Account Details)
+#        run: |
+#          az account show
 
       # Initialize the working directory containing configuration files
       - name: Terraform Init
