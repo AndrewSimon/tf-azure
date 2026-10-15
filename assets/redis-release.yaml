@@ -7,7 +7,6 @@ spec:
   interval: 10m
   releaseName: redis
   targetNamespace: tlc # The namespace where Redis will be installed
-  createNamespace: true     # Instructs Flux to create the database namespace if it doesn't exist
   chart:
     spec:
       chart: redis
