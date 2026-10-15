@@ -241,7 +241,7 @@ jobs:
              /usr/local/bin/kubectl create ns tlc || true
              /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
 
-      - name: Deploy redis
+      - name: Deploy Fluxcd Community Version
         continue-on-error: true
         id: k3s-fluxcd-deploy      
         shell: bash
