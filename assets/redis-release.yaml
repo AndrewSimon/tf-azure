@@ -1,0 +1,25 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: redis
+  namespace: flux-system
+spec:
+  interval: 10m
+  releaseName: redis
+  targetNamespace: tlc # The namespace where Redis will be installed
+  createNamespace: true     # Instructs Flux to create the database namespace if it doesn't exist
+  chart:
+    spec:
+      chart: redis
+      version: "19.x" # Pin to a major version to safely allow patch updates
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+  values:
+    # Custom Helm overrides go here
+    architecture: standalone # Options: standalone or replication
+    auth:
+      enabled: true
+      # It is best practice to pass existing secrets for passwords,
+      # but Bitnami will auto-generate one if left blank.
