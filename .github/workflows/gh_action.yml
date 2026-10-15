@@ -216,7 +216,7 @@ jobs:
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
       
-      - name: Create workdir and Dockerfile, run example docker app build
+      - name: Create workdir and Dockerfile, run docker app build, push to local registry
         shell: bash
         run: | 
                mkdir alpine-build && cd alpine-build
@@ -243,6 +243,12 @@ jobs:
 
       - name: Deploy redis
         continue-on-error: true
+        id: k3s-fluxcd-deploy      
+        shell: bash
+        run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
+
+      - name: Deploy redis
+        continue-on-error: true
         id: k3s-redis-deploy      
         shell: bash
         run: |
@@ -250,7 +256,7 @@ jobs:
              /usr/sbin/helm repo update
              /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
 
-      - name: Get credentials
+      - name: Instructions on obtaining a headlamp token
         continue-on-error: true
         id: cred-step      
         shell: bash
@@ -258,8 +264,8 @@ jobs:
              IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
              echo "************************************"
              echo ""
-             echo " copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
-             echo " to get token, run: ssh azureuser@$IP -n "/usr/local/bin/kubectl create token headlamp --namespace kube-system""
+             echo " Copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
+             echo " To get a token, run: ssh azureuser@$IP -n \"/usr/local/bin/kubectl create token headlamp --namespace kube-system\""
              echo ""             
              echo "************************************"
 
