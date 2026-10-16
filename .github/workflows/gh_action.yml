@@ -122,8 +122,6 @@ jobs:
                sudo cp /etc/rancher/k3s/k3s.yaml /root/.kube/config
                sudo cp /etc/rancher/k3s/k3s.yaml /home/azureuser/.kube/config
                sudo chown -R azureuser:azureuser /home/azureuser/.kube
-               # Add kubeconfig as secret to default namespace, useful for flux cli
-               kubectl create secret generic local-kubeconfig -n default --from-file=config=/home/azureuser/.kube/config
                # Make k3s.yaml available for download to end-user
                sudo cp /etc/rancher/k3s/k3s.yaml /tmp
                # Make users' k3s.yaml use public IP
@@ -131,6 +129,8 @@ jobs:
                sudo chmod 777 /tmp/k3s.yaml
                # Ready node takes ~30 seconds 
                sleep 15
+               # Add kubeconfig as secret to default namespace, useful for flux cli
+               kubectl create secret generic local-kubeconfig -n default --from-file=config=/home/azureuser/.kube/config
 
       - name: Install Helm
         continue-on-error: true
@@ -223,8 +223,12 @@ jobs:
         run: | 
                mkdir alpine-build && cd alpine-build
                echo "FROM alpine:latest" > Dockerfile
-               echo "RUN apk add --no-cache bash python3" >> Dockerfile
-               echo "CMD [\"/bin/bash\"]" >> Dockerfile
+               echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
+               echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
+               echo "RUN apk add --no-cache --virtual .build-deps python3 gcc musl-dev && pip install --no-cache-dir -r requirements.txt  && apk del .build-deps" >> Dockerfile
+               echo "COPY app.py ." >> Dockerfile
+               echo "EXPOSE 8000" >> Dockerfile
+               echo "CMD [\"uvicorn\", \"app:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]" >> Dockerfile
                sudo docker build -t tlc-alpine-app .
                # Show new container is alpine, not ubuntu server
                sudo docker run --rm tlc-alpine-app cat /etc/os-release               
