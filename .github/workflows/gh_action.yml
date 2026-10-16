@@ -122,6 +122,8 @@ jobs:
                sudo cp /etc/rancher/k3s/k3s.yaml /root/.kube/config
                sudo cp /etc/rancher/k3s/k3s.yaml /home/azureuser/.kube/config
                sudo chown -R azureuser:azureuser /home/azureuser/.kube
+               # Add kubeconfig as secret to default namespace, useful for flux cli
+               kubectl create secret generic local-kubeconfig -n default --from-file=config=/home/azureuser/.kube/config
                # Make k3s.yaml available for download to end-user
                sudo cp /etc/rancher/k3s/k3s.yaml /tmp
                # Make users' k3s.yaml use public IP
