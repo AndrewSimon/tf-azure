@@ -14,6 +14,7 @@ env:
   GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
   ARM_USE_OIDC: "true"
   FQDN: tlc.eastus2.cloudapp.azure.com
+  REDIS_PASSWORD: ${{ secrets.ADMIN_PASSWD }}  # same as VM azureuser password
 
 jobs:
   infrastructure:
@@ -216,6 +217,70 @@ jobs:
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
       
+      - name: Generate Backend Files - app.py
+        run: |
+          cat << 'EOF' > app.py
+          import os
+          from fastapi import FastAPI, HTTPException
+          import redis
+
+          app = FastAPI(title="Python Alpine Redis Backend")
+
+          # Read connection details from environment variables
+          REDIS_HOST = os.getenv("REDIS_HOST", "redis-master")
+          REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+          REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+
+          # Initialize a connection pool for efficiency
+          pool = redis.ConnectionPool(
+              host=REDIS_HOST, 
+              port=REDIS_PORT, 
+              password=REDIS_PASSWORD, 
+              decode_responses=True # Automatically decodes byte responses to Python strings
+          )
+          r = redis.Redis(connection_pool=pool)
+
+          @app.get("/")
+          def read_root():
+              try:
+                  # Simple hit counter
+                  visits = r.incr("counter")
+                  return {"message": "Hello World from Alpine Backend!", "counter": visits}
+              except redis.ConnectionError:
+                  raise HTTPException(status_code=500, detail="Redis connection failed")
+
+          @app.get("/keys/{key}")
+          def get_key(key: str):
+              val = r.get(key)
+              if val is None:
+                  raise HTTPException(status_code=404, detail="Key not found")
+              return {key: val}
+
+          @app.post("/keys/{key}")
+          def set_key(key: str, value: str):
+              r.set(key, value)
+              return {"status": "success", "key": key, "value": value}
+          EOF
+
+      # =========================================================================
+      # STEP 2: Create the Python Dependencies (requirements.txt)
+      # =========================================================================
+      - name: Create requirements.txt
+        run: |
+          cat << 'EOF' > requirements.txt
+          fastapi>=0.100.0
+          uvicorn>=0.22.0
+          redis>=5.0.0
+          EOF
+
+      # Optional: Verify the files exist and look correct in the Actions logs
+      - name: Verify generated files
+        run: |
+          echo "=== Verifying app.py exists ==="
+          ls -l app.py
+          echo "=== Verifying requirements.txt contents ==="
+          cat requirements.txt
+
       - name: Create workdir and Dockerfile, run docker app build, push to local registry
         shell: bash
         run: | 
