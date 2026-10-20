@@ -221,7 +221,8 @@ jobs:
       
       - name: Generate Backend Files - app.py
         run: |
-          cat << 'EOF' > app.py
+          mkdir alpine-build || true
+          cat << 'EOF' > alpine-build/app.py
           import os
           from fastapi import FastAPI, HTTPException
           import redis
@@ -269,7 +270,7 @@ jobs:
       # =========================================================================
       - name: Create requirements.txt
         run: |
-          cat << 'EOF' > requirements.txt
+          cat << 'EOF' > alpine-build/requirements.txt
           fastapi>=0.100.0
           uvicorn>=0.22.0
           redis>=5.0.0
@@ -279,27 +280,26 @@ jobs:
       - name: Verify generated files
         run: |
           echo "=== Verifying app.py exists ==="
-          ls -l app.py
+          ls -l alpine-build/app.py
           echo "=== Verifying requirements.txt contents ==="
-          cat requirements.txt
+          cat alpine-build/requirements.txt
 
       - name: Create workdir and Dockerfile, run docker app build, push to local registry
         shell: bash
         run: | 
-               mkdir alpine-build && cd alpine-build
-               echo "FROM alpine:latest" > Dockerfile
-               echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
-               echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
-               echo "RUN apk add --no-cache --virtual .build-deps python3 gcc musl-dev && pip install --no-cache-dir -r requirements.txt  && apk del .build-deps" >> Dockerfile
-               echo "COPY app.py ." >> Dockerfile
-               echo "EXPOSE 8000" >> Dockerfile
-               echo "CMD [\"uvicorn\", \"app:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]" >> Dockerfile
-               sudo docker build -t tlc-alpine-app .
-               # Show new container is alpine, not ubuntu server
-               sudo docker run --rm tlc-alpine-app cat /etc/os-release               
+             cd alpine-build
+             echo "FROM alpine:latest" > Dockerfile
+             echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
+             echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
+             echo "RUN apk add --no-cache --virtual .build-deps python3 gcc musl-dev && pip install --no-cache-dir -r requirements.txt  && apk del .build-deps" >> Dockerfile
+             echo "COPY app.py ." >> Dockerfile
+             echo "EXPOSE 8000" >> Dockerfile
+             echo "CMD [\"uvicorn\", \"app:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]" >> Dockerfile  
+             sudo docker build -t tlc-alpine-app .
+             # Show new container is alpine, not ubuntu server              sudo docker run --rm tlc-alpine-app cat /etc/os-release               
                
-               sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
-               sudo docker push localhost:5000/tlc-alpine-app:latest     
+             sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
+             sudo docker push localhost:5000/tlc-alpine-app:latest     
       # Need to checkout code again, this time for the k3s assets
       - name: Checkout Code
         uses: actions/checkout@v4      
