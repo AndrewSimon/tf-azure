@@ -338,11 +338,11 @@ jobs:
              echo ""             
              echo "************************************"
 
-      - name: Run sleep 30 minutes to keep runner up
+      - name: Run sleep 45  minutes to keep runner up
         continue-on-error: true
         id: sleep-step      
         shell: bash
-        run:  sleep 1800
+        run:  sleep 2700
        
 #  Lifecycle termination of node at job completion is an 'administrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
