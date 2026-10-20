@@ -289,8 +289,7 @@ jobs:
              echo "FROM alpine:latest" > Dockerfile
              echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
              echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
-             echo "RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps" >> Dockerfile
-             
+             echo "RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r alpine-build/requirements.txt && apk del .build-deps" >> Dockerfile        
              echo "COPY app.py ." >> Dockerfile
              echo "EXPOSE 8000" >> Dockerfile
              echo "CMD [\"uvicorn\", \"app:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]" >> Dockerfile  
