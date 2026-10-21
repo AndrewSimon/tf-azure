@@ -310,13 +310,13 @@ jobs:
         id: k3s-redis-deploy      
         shell: bash
         run: |
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
+#             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
+#             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
         
              # This is how to deploy without fluxdc
-             #      /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
-             #      /usr/sbin/helm repo update
-             #      /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
+                   /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
+                   /usr/sbin/helm repo update
+                   /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
