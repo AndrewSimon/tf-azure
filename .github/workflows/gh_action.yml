@@ -219,7 +219,7 @@ jobs:
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
       
-      - name: Gemerate files, create workdir, run docker app build, push to local registry
+      - name: Create workdir, generate files
         shell: bash
         run: |
           mkdir alpine-build || true
@@ -284,6 +284,11 @@ jobs:
           CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
           EOL
           
+          
+       - name: Rrun docker app build, push to local registry
+        shell: bash
+        run: |
+          cd alpine-build   
           sudo docker build -t tlc-alpine-app .
           # Show new container is alpine, not ubuntu server              sudo docker run --rm tlc-alpine-app cat /etc/os-release               
                
