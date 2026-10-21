@@ -14,6 +14,7 @@ env:
   GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
   ARM_USE_OIDC: "true"
   FQDN: tlc.eastus2.cloudapp.azure.com
+  REDIS_PASSWORD: ${{ secrets.ADMIN_PASSWD }}  # same as VM azureuser password
 
 jobs:
   infrastructure:
@@ -218,23 +219,81 @@ jobs:
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
       
-      - name: Create workdir and Dockerfile, run docker app build, push to local registry
+      - name: Create workdir, generate files
         shell: bash
-        run: | 
-               mkdir alpine-build && cd alpine-build
-               echo "FROM alpine:latest" > Dockerfile
-               echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
-               echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
-               echo "RUN apk add --no-cache --virtual .build-deps python3 gcc musl-dev && pip install --no-cache-dir -r requirements.txt  && apk del .build-deps" >> Dockerfile
-               echo "COPY app.py ." >> Dockerfile
-               echo "EXPOSE 8000" >> Dockerfile
-               echo "CMD [\"uvicorn\", \"app:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]" >> Dockerfile
-               sudo docker build -t tlc-alpine-app .
-               # Show new container is alpine, not ubuntu server
-               sudo docker run --rm tlc-alpine-app cat /etc/os-release               
+        run: |
+          mkdir alpine-build || true
+          cd alpine-build
+          cat << 'EOF' > app.py
+          import os
+          from fastapi import FastAPI, HTTPException
+          import redis
+
+          app = FastAPI(title="Python Alpine Redis Backend")
+
+          # Read connection details from environment variables
+          REDIS_HOST = os.getenv("REDIS_HOST", "redis-master")
+          REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+          REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+
+          # Initialize a connection pool for efficiency
+          pool = redis.ConnectionPool(
+              host=REDIS_HOST, 
+              port=REDIS_PORT, 
+              password=REDIS_PASSWORD, 
+              decode_responses=True # Automatically decodes byte responses to Python strings
+          )
+          r = redis.Redis(connection_pool=pool)
+
+          @app.get("/")
+          def read_root():
+              try:
+                  # Simple hit counter
+                  visits = r.incr("counter")
+                  return {"message": "Hello World from Alpine Backend!", "counter": visits}
+              except redis.ConnectionError:
+                  raise HTTPException(status_code=500, detail="Redis connection failed")
+
+          @app.get("/keys/{key}")
+          def get_key(key: str):
+              val = r.get(key)
+              if val is None:
+                  raise HTTPException(status_code=404, detail="Key not found")
+              return {key: val}
+
+          @app.post("/keys/{key}")
+          def set_key(key: str, value: str):
+              r.set(key, value)
+              return {"status": "success", "key": key, "value": value}
+          EOF
+
+          cat << 'EOT' > requirements.txt
+          fastapi>=0.100.0
+          uvicorn>=0.22.0
+          redis>=5.0.0
+          EOT
+             
+          cat << 'EOL' > Dockerfile           
+          FROM alpine:latest
+          ENV PYTHONDONTWRITEBYTECODE=1
+          ENV PYTHONUNBUFFERED=1
+          COPY app.py .
+          COPY requirements.txt .
+          RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps
+          EXPOSE 8000
+          CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+          EOL
+          
+          
+      - name: Rrun docker app build, push to local registry
+        shell: bash
+        run: |
+          cd alpine-build   
+          sudo docker build -t tlc-alpine-app .
+          # Show new container is alpine, not ubuntu server              sudo docker run --rm tlc-alpine-app cat /etc/os-release               
                
-               sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
-               sudo docker push localhost:5000/tlc-alpine-app:latest     
+          sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
+          sudo docker push localhost:5000/tlc-alpine-app:latest     
       # Need to checkout code again, this time for the k3s assets
       - name: Checkout Code
         uses: actions/checkout@v4      
@@ -258,14 +317,13 @@ jobs:
         id: k3s-redis-deploy      
         shell: bash
         run: |
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-        
-             # This is how to deploy without fluxdc
-             #      /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
-             #      /usr/sbin/helm repo update
-             #      /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
-
+             # Deploy Without Using FluxCD
+             /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
+             /usr/sbin/helm repo update
+             /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
+#            /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
+#            /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yam
+ 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
         id: cred-step      
@@ -279,11 +337,11 @@ jobs:
              echo ""             
              echo "************************************"
 
-      - name: Run sleep 30 minutes to keep runner up
+      - name: Run sleep 45  minutes to keep runner up
         continue-on-error: true
         id: sleep-step      
         shell: bash
-        run:  sleep 1800
+        run:  sleep 2700
        
 #  Lifecycle termination of node at job completion is an 'administrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
