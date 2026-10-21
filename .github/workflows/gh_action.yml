@@ -283,7 +283,7 @@ jobs:
           EOL
           
           
-       - name: Rrun docker app build, push to local registry
+      - name: Rrun docker app build, push to local registry
         shell: bash
         run: |
           cd alpine-build   
