@@ -275,9 +275,9 @@ jobs:
           FROM alpine:latest
           ENV PYTHONDONTWRITEBYTECODE=1
           ENV PYTHONUNBUFFERED=1
-          RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps
           COPY app.py .
           COPY requirements.txt .
+          RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps
           EXPOSE 8000
           CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
           EOL
