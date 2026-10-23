@@ -1,45 +1,54 @@
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: html-output-config
+#data:
+#  index.html: |
+#    <!DOCTYPE html>
+#    <html>
+#    <head>
+#        <title>Hello World K8s</title>
+#    </head>
+#    <body>
+#        <h1>Hello World from a Kubernetes ConfigMap!</h1>
+#    </p>The custom index.html file is completely decoupled from the Nginx container image.</p>
+#    </body>
+#    </html>
+#---
+# RBAC: Create a ServiceAccount for the Python App
 apiVersion: v1
-kind: ConfigMap
+kind: ServiceAccount
 metadata:
-  name: tlc-web-content
-  namespace: tlc
-data:
-  index.html: |
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TLC Alpine App</title>
-        <style>
-            body { font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .card { background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
-            h1 { color: #0076ff; margin-bottom: 0.5rem; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h1>Welcome to TLC Alpine App</h1>
-            <p>The tf-azure repo contains Azure IaC and a Github Actions Workflow</p> 
-            <p>The workflow is 2 jobs. The first job runs Terraform to standup most of the Azure resources hosting this web page.</p> 
-            <p>The terraform job also stood up an Azure Function to dynamically provision a gh self-hosted runner upon a repository push.</p>
-            <p>The self-hosted runner runs the second (non-Terraform) workflow job that is queued when you 'trigger' the action via push. 
-            <p>The second job builds this containerized python server via Docker on the gh runner.</p> 
-            <p>The runner then installed Rancher k3s onto itself to become a kubernetes server.</p> 
-            <p>Once the Rancher kubernetes platform is provisioned, we used it to run this containerized web server, all via same workflow!</p>
-            <p>If already provisioned, a configmap update and pod kill (via Headlamp, for instance) restarts the pod with an updated web page automagically!</p>
-            <p>Note any changes to configmaps or any other Kubernetes resources NOT committed to tf-azure is lost/overwritten with next deploy.
-        </div>
-    </body>
-    </html>
+  name: configmap-writer-sa
 ---
+# RBAC: Define permissions to read and update ConfigMaps
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: configmap-writer-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update", "patch"]
+---
+# RBAC: Bind the Role to the ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: configmap-writer-binding
+subjects:
+  - kind: ServiceAccount
+    name: configmap-writer-sa
+roleRef:
+  kind: Role
+  name: configmap-writer-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# The Python App Job/Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tlc-alpine-app
-  namespace: tlc
-  labels:
-    app: tlc-alpine-ap
 spec:
   replicas: 1
   selector:
@@ -50,51 +59,71 @@ spec:
       labels:
         app: tlc-alpine-app
     spec:
+      serviceAccountName: configmap-writer-sa
       containers:
-      - name: alpine-app
-        image: localhost:5000/tlc-alpine-app:latest
-        command: ["python3"]
-        args: ["-m", "http.server", "80"]
-        ports:
-        - containerPort: 80
-        # Mount the index.html file into the container's working directory
-        volumeMounts:
-        - name: html-volume
-          mountPath: /index.html
-          subPath: index.html
+        - name: app
+          # Replace with your actual image path/tag
+          image: localhost:5000/tlc-alpine-app:latest 
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis
+                  key: redis-password
+            - name: REDIS_HOST
+              value: "redis-master"
+            - name: CONFIGMAP_NAME
+              value: "html-output-config"
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+          - name: html-volume
+            mountPath: /index.html
+            subPath: index.html
+          ports:
+          - containerPort: 8080        
+        - name: nginx
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+          - name: html-volume
+            mountPath: /usr/share/nginx/html
       volumes:
       - name: html-volume
         configMap:
-          name: tlc-web-content
+          name: html-output-config
+          
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: tlc-alpine-service
-  namespace: tlc
+  name: tlc-alpine-app
 spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
   selector:
     app: tlc-alpine-app
-  ports:
-  - protocol: TCP
-    port: 80          
-    targetPort: 80     
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: tlc-alpine-ingress
-  namespace: tlc
-  annotations:
-    kubernetes.io/ingress.class: traefik
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: tlc-alpine-service
-            port:
-              number: 80
+  name: html-output-config
+data:
+  index.html: |
+    <html>
+    <head>
+        <title>Kubernetes Powered Page</title>
+    </head>
+    <body>
+        <h1>Hello from inside the Cluster!</h1>
+        <p>This HTML is automatically generated and written directly to a ConfigMap.</p>
+        <p><strong>Total Hits from Redis:</strong> {visits}</p>
+    </body>
+    </html>
+ 

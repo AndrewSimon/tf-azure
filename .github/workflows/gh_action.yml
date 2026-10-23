@@ -1,4 +1,4 @@
-name: 'Terraform Plan via Python'
+name: 'Terraform Plan, Deploy and Python Build, Deploy'
 # v1
 on: [push]
 
@@ -14,7 +14,6 @@ env:
   GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
   ARM_USE_OIDC: "true"
   FQDN: tlc.eastus2.cloudapp.azure.com
-  REDIS_PASSWORD: ${{ secrets.ADMIN_PASSWD }}  # same as VM azureuser password
 
 jobs:
   infrastructure:
@@ -71,9 +70,9 @@ jobs:
 #      - name: Terraform Destroy terraform_data.upload_function
 #        id: delete-upload-function
 #        run: terraform destroy -refresh=false -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
-      - name: Terraform Destroy Upload (only)
-        id: destroy
-        run: terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
+#      - name: Terraform Destroy Upload (only)
+#        id: destroy
+#        run: terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
       
       - name: Terraform Apply and Python Build
         id: apply
@@ -130,8 +129,6 @@ jobs:
                sudo chmod 777 /tmp/k3s.yaml
                # Ready node takes ~30 seconds 
                sleep 15
-               # Add kubeconfig as secret to default namespace, useful for flux cli
-               kubectl create secret generic local-kubeconfig -n default --from-file=config=/home/azureuser/.kube/config
 
       - name: Install Helm
         continue-on-error: true
@@ -160,6 +157,25 @@ jobs:
                
                kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
                
+      - name: Create App Namespace (tlc)
+        continue-on-error: true   
+        id: tlc-namespace      
+        shell: bash
+        run: /usr/local/bin/kubectl create ns tlc
+          
+      - name: Deploy redis
+        continue-on-error: true
+        id: k3s-redis-deploy      
+        shell: bash
+        run: |
+             #/usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
+             #/usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
+        
+             # This is how to deploy without fluxdc
+             /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
+             /usr/sbin/helm repo update
+             /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
+
 
       - name: Install Docker CE
         shell: bash
@@ -219,81 +235,148 @@ jobs:
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
       
-      - name: Create workdir, generate files
-        shell: bash
+      - name: Generate Backend Files - app.py
         run: |
+          export REDIS_PASSWORD=$(/usr/local/bin/kubectl get secret --namespace tlc redis -o jsonpath="{.data.redis-password}" | base64 -d)
           mkdir alpine-build || true
-          cd alpine-build
-          cat << 'EOF' > app.py
+          cat << 'EOF' > alpine-build/app.py
           import os
-          from fastapi import FastAPI, HTTPException
           import redis
+          import time
+          import http.server
+          import socketserver
+          import threading
+          # from redis.cluster import RedisCluster
+          from kubernetes import client, config
+          from kubernetes.client.rest import ApiException
 
-          app = FastAPI(title="Python Alpine Redis Backend")
-
-          # Read connection details from environment variables
-          REDIS_HOST = os.getenv("REDIS_HOST", "redis-master")
+          # 1. Connection Configurations from Environment Variables
+          REDIS_HOST = "redis-master"
           REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-          REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+          REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+          CONFIGMAP_NAME = os.getenv("CONFIGMAP_NAME", "html-output-config")
+          NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
 
-          # Initialize a connection pool for efficiency
-          pool = redis.ConnectionPool(
-              host=REDIS_HOST, 
-              port=REDIS_PORT, 
-              password=REDIS_PASSWORD, 
-              decode_responses=True # Automatically decodes byte responses to Python strings
-          )
-          r = redis.Redis(connection_pool=pool)
+          def htserver():
+              PORT = 8080
+              Handler = http.server.SimpleHTTPRequestHandler
 
-          @app.get("/")
-          def read_root():
               try:
-                  # Simple hit counter
+                  with socketserver.TCPServer(("", PORT), Handler) as httpd:
+                      print(f"Serving HTTP on port {PORT} (http://localhost:{PORT}/) ...")
+                      httpd.serve_forever()
+              except KeyboardInterrupt:
+                  print("\nServer stopped by user.")
+              except Exception as e:
+                  print(f"Error starting server: {e}")
+
+          def main():
+              # 2. Interact with Redis
+              try:
+                  r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD,decode_responses=True)
+                  # rc = RedisCluster(host='redis-headless', port=6379, password=REDIS_PASSWORD, decode_responses=True)
                   visits = r.incr("counter")
-                  return {"message": "Hello World from Alpine Backend!", "counter": visits}
-              except redis.ConnectionError:
-                  raise HTTPException(status_code=500, detail="Redis connection failed")
+                  print(f"Successfully connected to Redis. Current counter: {visits}")
+              except Exception as e:
+                  print(f"Failed to connect to Redis: {e}")
+                  visits = "Unavailable"
+                  htserver()
 
-          @app.get("/keys/{key}")
-          def get_key(key: str):
-              val = r.get(key)
-              if val is None:
-                  raise HTTPException(status_code=404, detail="Key not found")
-              return {key: val}
+              # 3. Generate HTML Content
+              html_content = f"""<!DOCTYPE html>
+          <html>
+          <head>
+              <title>Kubernetes Powered Page</title>
+          </head>
+          <body>
+              <h1>Hello from inside the Cluster!</h1>
+              <p>This HTML is automatically generated and written directly to a ConfigMap.</p>
+              <p><strong>Total Hits from Redis:</strong> {visits}</p>
+          </body>
+          </html>
+          """
 
-          @app.post("/keys/{key}")
-          def set_key(key: str, value: str):
-              r.set(key, value)
-              return {"status": "success", "key": key, "value": value}
+              # 4. Authenticate and interact with Kubernetes API
+              try:
+                  # Configures the client when running inside a Pod
+                  config.load_incluster_config()
+                  v1 = client.CoreV1Api()
+        
+                  # Read the existing ConfigMap to safely update it
+                  try:
+                      config_map = v1.read_namespaced_config_map(name=CONFIGMAP_NAME, namespace=NAMESPACE)
+                      config_map.data = {"index.html": html_content}
+                      v1.replace_namespaced_config_map(name=CONFIGMAP_NAME, namespace=NAMESPACE, body=config_map)
+                      print(f"Successfully updated ConfigMap '{CONFIGMAP_NAME}' in namespace '{NAMESPACE}'.")
+                      time.sleep(1)
+                      htserver()
+                  except ApiException as e:
+                      if e.status == 404:
+                          # Create it if it doesn't exist
+                          meta = client.V1ObjectMeta(name=CONFIGMAP_NAME)
+                          config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=meta, data={"index.html": html_content})
+                          v1.create_namespaced_config_map(namespace=NAMESPACE, body=config_map)
+                          print(f"Successfully created ConfigMap '{CONFIGMAP_NAME}' in namespace '{NAMESPACE}'.")
+                          htserver()
+                      else:
+                          raise e
+                          htserver()
+
+              except Exception as e:
+                  print(f"Failed to update Kubernetes ConfigMap: {e}")
+                  htserver()
+
+          if __name__ == "__main__":
+              main()
+
           EOF
 
-          cat << 'EOT' > requirements.txt
-          fastapi>=0.100.0
-          uvicorn>=0.22.0
-          redis>=5.0.0
-          EOT
-             
-          cat << 'EOL' > Dockerfile           
-          FROM alpine:latest
-          ENV PYTHONDONTWRITEBYTECODE=1
-          ENV PYTHONUNBUFFERED=1
-          COPY app.py .
-          COPY requirements.txt .
-          RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps
-          EXPOSE 8000
-          CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
-          EOL
-          
-          
-      - name: Rrun docker app build, push to local registry
-        shell: bash
+      # =========================================================================
+      # STEP 2: Create the Python Dependencies (requirements.txt)
+      # =========================================================================
+      - name: Create requirements.txt
         run: |
-          cd alpine-build   
-          sudo docker build -t tlc-alpine-app .
-          # Show new container is alpine, not ubuntu server              sudo docker run --rm tlc-alpine-app cat /etc/os-release               
+          cat << 'EOF' > alpine-build/requirements.txt
+          redis==5.0.1
+          kubernetes==31.0.0
+          EOF
+
+      # =========================================================================
+      # STEP 3: Create default index.html for the container
+      # =========================================================================
+      - name: Create index.html
+        run: |
+          cat << 'EOF' > alpine-build/index.html
+          <h1>The tlc-alpine-app python script has not run successfully, sorry</h1>
+          <p>This is default content so the webserver can start</p>
+          EOF
+
+
+      # Optional: Verify the files exist and look correct in the Actions logs
+      - name: Verify generated files
+        run: |
+          echo "=== Verifying app.py exists ==="
+          cat alpine-build/app.py
+          echo "=== Verifying requirements.txt contents ==="
+          cat alpine-build/requirements.txt
+
+      - name: Create workdir and Dockerfile, run docker app build, push to local registry
+        shell: bash
+        run: | 
+             cd alpine-build
+             echo "FROM alpine:latest" > Dockerfile
+             echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
+             echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
+             echo "COPY requirements.txt ." >> Dockerfile
+             echo "COPY app.py ." >> Dockerfile
+             echo "RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps" >> Dockerfile
+             echo "CMD [\"python\", \"app.py\"]" >> Dockerfile  
+             sudo docker build -t tlc-alpine-app .
+             # Show new container is alpine, not ubuntu server  
+             sudo docker run --rm tlc-alpine-app cat /etc/os-release               
                
-          sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
-          sudo docker push localhost:5000/tlc-alpine-app:latest     
+             sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
+             sudo docker push localhost:5000/tlc-alpine-app:latest     
       # Need to checkout code again, this time for the k3s assets
       - name: Checkout Code
         uses: actions/checkout@v4      
@@ -302,9 +385,7 @@ jobs:
         continue-on-error: true
         id: k3s-alpine-deploy      
         shell: bash
-        run: |
-             /usr/local/bin/kubectl create ns tlc || true
-             /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
+        run: /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
 
       - name: Deploy Fluxcd Community Version
         continue-on-error: true
@@ -312,18 +393,6 @@ jobs:
         shell: bash
         run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
 
-      - name: Deploy redis
-        continue-on-error: true
-        id: k3s-redis-deploy      
-        shell: bash
-        run: |
-             # Deploy Without Using FluxCD
-             /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
-             /usr/sbin/helm repo update
-             /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
-#            /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
-#            /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yam
- 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
         id: cred-step      
