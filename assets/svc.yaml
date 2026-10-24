@@ -111,33 +111,6 @@ spec:
   selector:
     app: tlc-alpine-app
 ---
-=======
-#apiVersion: v1
-#kind: ConfigMap
-#metadata:
-#  name: html-output-config
-#data:
-#  index.html: |
-#    <!DOCTYPE html>
-#    <html>
-#    <head>
-#        <title>Hello World K8s</title>
-#    </head>
-#    <body>
-#        <h1>Hello World from a Kubernetes ConfigMap!</h1>
-#    </p>The custom index.html file is completely decoupled from the Nginx container image.</p>
-#    </body>
-#    </html>
-#---
-# RBAC: Create a ServiceAccount for the Python App
->>>>>>> tlc-alpine-build
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-<<<<<<< HEAD
-=======
-  name: configmap-writer-sa
----
 # RBAC: Define permissions to read and update ConfigMaps
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -230,7 +203,6 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
->>>>>>> tlc-alpine-build
   name: html-output-config
 data:
   index.html: |
