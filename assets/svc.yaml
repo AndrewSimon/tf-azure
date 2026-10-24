@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # RBAC: Create a ServiceAccount for the Python App
 apiVersion: v1
 kind: ServiceAccount
@@ -93,16 +94,130 @@ spec:
   selector:
     app: tlc-alpine-app
 ---
+=======
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: html-output-config
+#data:
+#  index.html: |
+#    <!DOCTYPE html>
+#    <html>
+#    <head>
+#        <title>Hello World K8s</title>
+#    </head>
+#    <body>
+#        <h1>Hello World from a Kubernetes ConfigMap!</h1>
+#    </p>The custom index.html file is completely decoupled from the Nginx container image.</p>
+#    </body>
+#    </html>
+#---
+# RBAC: Create a ServiceAccount for the Python App
+>>>>>>> tlc-alpine-build
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+<<<<<<< HEAD
+=======
+  name: configmap-writer-sa
+---
+# RBAC: Define permissions to read and update ConfigMaps
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: configmap-writer-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update", "patch"]
+---
+# RBAC: Bind the Role to the ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: configmap-writer-binding
+subjects:
+  - kind: ServiceAccount
+    name: configmap-writer-sa
+roleRef:
+  kind: Role
+  name: configmap-writer-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# The Python App Job/Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tlc-alpine-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tlc-alpine-app
+  template:
+    metadata:
+      labels:
+        app: tlc-alpine-app
+    spec:
+      serviceAccountName: configmap-writer-sa
+      containers:
+        - name: app
+          # Replace with your actual image path/tag
+          image: localhost:5000/tlc-alpine-app:latest 
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis
+                  key: redis-password
+            - name: REDIS_HOST
+              value: "redis-master"
+            - name: CONFIGMAP_NAME
+              value: "html-output-config"
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+          - name: html-volume
+            mountPath: /index.html
+            subPath: index.html
+          ports:
+          - containerPort: 8080        
+        - name: nginx
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+          - name: html-volume
+            mountPath: /usr/share/nginx/html
+      volumes:
+      - name: html-volume
+        configMap:
+          name: html-output-config
+          
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tlc-alpine-app
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: tlc-alpine-app
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
+>>>>>>> tlc-alpine-build
   name: html-output-config
 data:
   index.html: |
     <html>
-    <head>
-        <title>Kubernetes Powered Page</title>
-    </head>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -118,5 +233,4 @@ data:
         <p>This HTML is automatically generated and written directly to a ConfigMap.</p>
         <p><strong>Total Hits from Redis:</strong> {visits}</p>
     </body>
-    </html>    
     </html>
