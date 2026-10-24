@@ -1,4 +1,4 @@
-name: 'Terraform Plan, Deploy and Python Build, Deploy'
+       name: 'Terraform Plan, Deploy and Python Build, Deploy'
 # v1
 on: [push]
 
@@ -276,6 +276,7 @@ jobs:
                   r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD,decode_responses=True)
                   # rc = RedisCluster(host='redis-headless', port=6379, password=REDIS_PASSWORD, decode_responses=True)
                   visits = r.incr("counter")
+                  info = r.info()
                   print(f"Successfully connected to Redis. Current counter: {visits}")
               except Exception as e:
                   print(f"Failed to connect to Redis: {e}")
@@ -284,14 +285,23 @@ jobs:
 
               # 3. Generate HTML Content
               html_content = f"""<!DOCTYPE html>
-          <html>
-          <head>
-              <title>Kubernetes Powered Page</title>
-          </head>
-          <body>
-              <h1>Hello from inside the Cluster!</h1>
+          <html>                               
+          <head>                                         
+              <title>TLC Alpine App</title>
+          </head>                                                  
+          <body style="font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center; align-items:
+          <table><tr><td>                                
+              <h1 align=center>Hello from inside tlc-alpine-app!</h1> 
+          </td></tr><tr><td>                                                
+          <div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;">
               <p>This HTML is automatically generated and written directly to a ConfigMap.</p>
               <p><strong>Total Hits from Redis:</strong> {visits}</p>
+              <p>>Connected clients: {info['connected_clients']}</p>
+              <p>>Used memory (human): {info['used_memory_human']}</p>
+              <p>Uptime in days: {info['uptime_in_days']}</p>
+              <p>>Operations per second: {info['instantaneous_ops_per_sec']}</p>
+          </td></tr></table>
+          </div>                                            
           </body>
           </html>
           """
