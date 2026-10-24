@@ -1,4 +1,4 @@
-name: 'Terraform Partial Destroy'
+name: 'Terraform Partial Destroy v1'
 # v1
 on: [push]
 
