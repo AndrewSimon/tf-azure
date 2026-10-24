@@ -1,4 +1,4 @@
-       name: 'Terraform Plan, Deploy and Python Build, Deploy'
+name: 'Terraform Plan, Deploy and Python Build, Deploy'
 # v1
 on: [push]
 
