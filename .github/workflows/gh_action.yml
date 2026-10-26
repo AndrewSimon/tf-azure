@@ -298,6 +298,7 @@ jobs:
               <p>Once connected to Redis on the backend, HTML is automatically generated and written to a K8s configMap.</p>
               <p>The configmap is HTML content that is mounted and served HTTP via nginx container (port 80) and the python app container (port 8080)</p>
               <p>The nginx port 80 server data is also routed via k8s cluster's Traefik default for the FQDN, e.g. http://tlc.eastus2.cloudapp.azure.com/</p>
+              <p>Redis has a built-in counter and tlc-alpine-app will increment this counter to update 'visits', below.  Theoretically, other apps could connect to the same Redis and update the counter, accordingly.</p>
               <li><strong>Total Hits from Redis:</strong> {visits}</li>
               <li>Connected clients: {info['connected_clients']}</li>
               <li>Used memory (human): {info['used_memory_human']}</li>
