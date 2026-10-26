@@ -289,17 +289,22 @@ jobs:
           <head>                                         
               <title>TLC Alpine App</title>
           </head>                                                  
-          <body style="font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center; align-items:
+          <body style="font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center;">
           <table><tr><td>                                
               <h1 align=center>Hello from inside tlc-alpine-app!</h1> 
           </td></tr><tr><td>                                                
           <div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;">
-              <p>This HTML is automatically generated and written directly to a ConfigMap.</p>
+              <p>TLC Alpine App is a Kubernetes deployment that establishes a 'backend' connection to a separate Redis statefulset (deployed via Helm or Flux and Helm) in the same namespace</p> 
+              <p>Once connected to Redis on the backend, HTML is automatically generated and written to a K8s configMap.</p>
+              <p>The HTML (configmap) is served on two ports: 80 (via Nginx container) and 8080 (via python 'backend' container)</p>
+              <p>The configmap is HTML content that is mounted and served HTTP via nginx container (port 80) and the backend container (port 8080)</p>
+              <p>The nginx port 80 server is also routed via Traefik default route of the server's FQDN (e.g. http://tlc.eastus2.cloudapp.azure.com/)!</p>
               <p><strong>Total Hits from Redis:</strong> {visits}</p>
-              <p>>Connected clients: {info['connected_clients']}</p>
-              <p>>Used memory (human): {info['used_memory_human']}</p>
+              <p>Connected clients: {info['connected_clients']}</p>
+              <p>Used memory (human): {info['used_memory_human']}</p>
               <p>Uptime in days: {info['uptime_in_days']}</p>
-              <p>>Operations per second: {info['instantaneous_ops_per_sec']}</p>
+              <p>Operations per second: {info['instantaneous_ops_per_sec']}</p>
+              <p>If you called your cloudapp tlc in eastus2, you can visit it's headlamp at http://tlc.eastus2.cloudapp.azure.com:30443</p>
           </td></tr></table>
           </div>                                            
           </body>
