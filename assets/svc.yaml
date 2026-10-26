@@ -218,8 +218,10 @@ data:
         </style>
     </head>
     <body>
-        <h1>Hello from inside the Cluster!</h1>
-        <p>This HTML is automatically generated and written directly to a ConfigMap.</p>
-        <p><strong>Total Hits from Redis:</strong> {visits}</p>
+        <h1>Hello from inside TLC Alpine App!</h1>
+        <p>This HTML is still the default k9s deployment generated ConfigMap.</p>
+        <p>The python generated configmap will take 1 to 2 minutes to sync automagically, please be patient</p>
+        <p>Please keep hitting refresh and eventually this message will change.
+        <!--<p><strong>Total Hits from Redis:</strong> {visits}</p>-->
     </body>
     </html>
