@@ -293,7 +293,7 @@ jobs:
           <table><tr><td>                                
               <h1 align=center>Hello from inside tlc-alpine-app!</h1> 
           </td></tr><tr><td>                                                
-          <div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;">
+          <div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: left;">
               <p>TLC Alpine App is a Kubernetes deployment that establishes a 'backend' connection to a separate Redis statefulset (deployed via Helm or Flux and Helm) in the same namespace</p> 
               <p>Once connected to Redis on the backend, HTML is automatically generated and written to a K8s configMap.</p>
               <p>The configmap is HTML content that is mounted and served HTTP via nginx container (port 80) and the python app container (port 8080)</p>
