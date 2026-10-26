@@ -170,7 +170,7 @@ jobs:
         run: |
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-        
+             #/usr/local/bin/kubectl create secret docker-registry regcred --docker-username=xxxx --docker-password='xxxxxx' --docker-email=xxxxx --dry-run=client -o yaml
              # This is how to deploy without fluxdc
              #/usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
              #/usr/sbin/helm repo update
