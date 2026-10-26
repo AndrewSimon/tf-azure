@@ -302,7 +302,7 @@ jobs:
               <li>Connected clients: {info['connected_clients']}</li>
               <li>Used memory (human): {info['used_memory_human']}</li>
               <li>Uptime in days: {info['uptime_in_days']}</li>
-              <li>Operations per second: {info['instantaneous_ops_per_sec']}</li>
+              <li>Total commands processed since Redis db instantiated: {info['total_commands_processed']}</li>
               <p>If you called your cloudapp tlc in eastus2, you can visit it's headlamp at http://tlc.eastus2.cloudapp.azure.com:30443</p>
           </td></tr></table>
           </div>                                            
