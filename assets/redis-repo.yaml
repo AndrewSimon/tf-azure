@@ -32,3 +32,12 @@ spec:
   policy:
     semver:
       range: '7.x.x' 
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: flux-system # Change to your target namespace if different
+spec:
+  interval: 2h0m0s
+  url: https://bitnami.com
