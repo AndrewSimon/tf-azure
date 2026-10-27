@@ -12,6 +12,7 @@ env:
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+  
   ARM_USE_OIDC: "true"
   FQDN: tlc.eastus2.cloudapp.azure.com
 
@@ -156,6 +157,18 @@ jobs:
                echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
                
                kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
+      
+      - name: Create Docker config directory
+        run: mkdir -p ~/.docker || true
+
+      - name: Populate azureuser docker config.json
+        run: |
+          cat << 'EOJ' > ~/.docker/config.json
+          ${{ secrets.DOCKER_CONFIG_JSON }}
+          EOJ
+          
+      - name: Log into docker.io as azureuser
+        run: docker login docker.io
                
       - name: Create App Namespace (tlc)
         continue-on-error: true   
