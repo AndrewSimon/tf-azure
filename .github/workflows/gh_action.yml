@@ -166,9 +166,6 @@ jobs:
           cat << 'EOJ' > ~/.docker/config.json
           ${{ secrets.DOCKER_CONFIG_JSON }}
           EOJ
-          
-      - name: Log into docker.io as azureuser
-        run: docker login docker.io
                
       - name: Create App Namespace (tlc)
         continue-on-error: true   
@@ -243,7 +240,10 @@ jobs:
                newgrp docker
 
                docker --version
-               
+
+      - name: Log into docker.io as azureuser
+        run: docker login docker.io
+      
       - name: Run a local containerized Docker registry   
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
