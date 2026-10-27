@@ -158,6 +158,9 @@ jobs:
                
                kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
       
+      - name: Checkout Code
+        uses: actions/checkout@v4      
+
       - name: Create Docker config directory
         run: mkdir -p ~/.docker || true
 
