@@ -161,6 +161,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4      
 
+
       - name: Create Docker config directory
         run: mkdir -p ~/.docker || true
 
@@ -176,6 +177,12 @@ jobs:
         shell: bash
         run: /usr/local/bin/kubectl create ns tlc
           
+      - name: Deploy Fluxcd Community Version
+        continue-on-error: true
+        id: k3s-fluxcd-deploy      
+        shell: bash
+        run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
+        
       - name: Deploy redis
         continue-on-error: true
         id: k3s-redis-deploy      
@@ -419,12 +426,6 @@ jobs:
         id: k3s-alpine-deploy      
         shell: bash
         run: /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
-
-      - name: Deploy Fluxcd Community Version
-        continue-on-error: true
-        id: k3s-fluxcd-deploy      
-        shell: bash
-        run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
