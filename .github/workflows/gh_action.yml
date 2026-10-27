@@ -242,7 +242,8 @@ jobs:
                docker --version
 
       - name: Log into docker.io as azureuser
-        run: docker login docker.io
+        continue-on-error: true
+        run: docker login docker.io 
       
       - name: Run a local containerized Docker registry   
         shell: bash
