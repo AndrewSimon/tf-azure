@@ -161,7 +161,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4      
 
-
       - name: Create Docker config directory
         run: mkdir -p ~/.docker || true
 
@@ -170,7 +169,8 @@ jobs:
           cat << 'EOJ' > ~/.docker/config.json
           ${{ secrets.DOCKER_CONFIG_JSON }}
           EOJ
-          /usr/local/bin/kubectl create secret -n flux-system docker-registry regcred --from-file=.dockerconfigjson=~/.docker/config.json
+          # /usr/local/bin/kubectl create secret -n flux-system docker-registry regcred --from-file=.dockerconfigjson=~/.docker/config.json
+          /usr/local/bin/kubectl create secret generic -n flux-system regcred --type=kubernetes.io/dockerconfigjson  --from-literal=.dockerconfigjson=${{ secrets.DOCKER_CONFIG_JSON }}
                       
       - name: Create App Namespace (tlc)
         continue-on-error: true   
