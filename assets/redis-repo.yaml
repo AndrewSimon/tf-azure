@@ -1,9 +1,34 @@
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
+#apiVersion: source.toolkit.fluxcd.io/v1
+#kind: HelmRepository
+#metadata:
+#  name: bitnami
+#  namespace: flux-system
+#spec:
+#  type: oci
+#  url: oci://registry-1.docker.io/bitnamicharts
+#  interval: 10m
+  
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
 metadata:
-  name: bitnami
+  name: redis
   namespace: flux-system
 spec:
-  type: oci
-  url: oci://registry-1.docker.io/bitnamicharts
-  interval: 10m
+  image: index.docker.io/library/redis
+  interval: 5m0s
+  # Optional: use provider or secretRef if pulling from a private registry
+  # provider: generic
+  # secretRef:
+  #   name: redis-registry-credentials
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: redis
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: redis
+  policy:
+    semver:
+      range: '7.x.x' 
