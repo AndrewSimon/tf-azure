@@ -12,6 +12,7 @@ env:
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+  
   ARM_USE_OIDC: "true"
   FQDN: tlc.eastus2.cloudapp.azure.com
 
@@ -156,26 +157,42 @@ jobs:
                echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
                
                kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
-               
+      
+      - name: Checkout Code
+        uses: actions/checkout@v4      
+                                            
       - name: Create App Namespace (tlc)
         continue-on-error: true   
         id: tlc-namespace      
         shell: bash
         run: /usr/local/bin/kubectl create ns tlc
-          
-      - name: Deploy redis
+      
+      - name: Create CICD Namespace (flux-system)      
+        continue-on-error: true   
+        id: flux-namespace      
+        shell: bash
+        run: /usr/local/bin/kubectl create ns flux-system
+        
+      - name: Deploy Fluxcd Community Version
+        continue-on-error: true
+        id: k3s-fluxcd-deploy      
+        shell: bash
+        run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
+        
+      - name: Deploy redis and copy redis secret to tlc namepsace
         continue-on-error: true
         id: k3s-redis-deploy      
         shell: bash
         run: |
-             #/usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
-             #/usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-        
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
+             ## Copy redis password to tlc namespace
+             /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f -
+             
              # This is how to deploy without fluxdc
-             /usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
-             /usr/sbin/helm repo update
-             /usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
-
+             #/usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
+             #/usr/sbin/helm repo update
+             #/usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
 
       - name: Install Docker CE
         shell: bash
@@ -230,7 +247,7 @@ jobs:
                newgrp docker
 
                docker --version
-               
+      
       - name: Run a local containerized Docker registry   
         shell: bash
         run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
@@ -251,7 +268,7 @@ jobs:
           from kubernetes.client.rest import ApiException
 
           # 1. Connection Configurations from Environment Variables
-          REDIS_HOST = "redis-master"
+          REDIS_HOST = "redis-master.flux-system.svc.cluster.local"
           REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
           REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
           CONFIGMAP_NAME = os.getenv("CONFIGMAP_NAME", "html-output-config")
@@ -294,7 +311,7 @@ jobs:
               <h1 align=center>Hello from inside tlc-alpine-app!</h1> 
           </td></tr><tr><td>                                                
           <div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: left;">
-              <p>TLC Alpine App is a Kubernetes deployment that establishes a 'backend' connection to a separate Redis statefulset (deployed via Helm or Flux and Helm) in the same namespace</p> 
+              <p>TLC Alpine App is a Kubernetes deployment that establishes a 'backend' connection to a separate Redis statefulset deployed via Helm or Flux and Helm</p> 
               <p>Once connected to Redis on the backend, HTML is automatically generated and written to a K8s configMap.</p>
               <p>The configmap is HTML content that is mounted and served HTTP via nginx container (port 80) and the python app container (port 8080)</p>
               <p>The nginx port 80 server data is also routed via k8s cluster's Traefik default for the FQDN, e.g. http://tlc.eastus2.cloudapp.azure.com/</p>
@@ -402,12 +419,6 @@ jobs:
         id: k3s-alpine-deploy      
         shell: bash
         run: /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
-
-      - name: Deploy Fluxcd Community Version
-        continue-on-error: true
-        id: k3s-fluxcd-deploy      
-        shell: bash
-        run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true

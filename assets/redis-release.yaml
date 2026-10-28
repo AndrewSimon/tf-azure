@@ -1,25 +1,43 @@
+# redis-release.yaml
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: redis
-  namespace: flux-system
 spec:
-  interval: 10m
-  releaseName: redis
-  targetNamespace: tlc # The namespace where Redis will be installed
+  interval: 5m
   chart:
     spec:
       chart: redis
-      version: "19.x" # Pin to a major version to safely allow patch updates
+      version: 18.x.x
       sourceRef:
         kind: HelmRepository
         name: bitnami
         namespace: flux-system
   values:
-    # Custom Helm overrides go here
-    architecture: standalone # Options: standalone or replication
-    auth:
-      enabled: false
-      # It is best practice to pass existing secrets for passwords,
-      # but Bitnami will auto-generate one if left blank.
-    image: docker.io/bitnamilegacy/redis:7.2.5-debian-12-r4
+    image:
+      # Flux will parse the comments below and automatically replace these lines
+      repository: redis # {"$imagepolicy": "flux-system:redis-policy:repository"}
+      tag: 7.2.4 # {"$imagepolicy": "flux-system:redis-policy:tag"}
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxcdbot@users.noreply.github.com
+        name: fluxcdbot
+      messageTemplate: 'chore: update redis to {{ (getPolicy "flux-system:redis-policy").LatestImage }}'
+  update:
+    path: ./redis-release.yaml # Path targeting where redis-release.yaml resides
+    strategy: Setters
