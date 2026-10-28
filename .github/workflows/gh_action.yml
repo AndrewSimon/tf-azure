@@ -277,7 +277,7 @@ jobs:
           from kubernetes.client.rest import ApiException
 
           # 1. Connection Configurations from Environment Variables
-          REDIS_HOST = "redis-master"
+          REDIS_HOST = "redis-master.flux-system.svc.cluster.local"
           REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
           REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
           CONFIGMAP_NAME = os.getenv("CONFIGMAP_NAME", "html-output-config")
