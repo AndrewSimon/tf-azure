@@ -179,14 +179,16 @@ jobs:
         shell: bash
         run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
         
-      - name: Deploy redis
+      - name: Deploy redis and copy redis secret to tlc namepsace
         continue-on-error: true
         id: k3s-redis-deploy      
         shell: bash
         run: |
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-             #/usr/local/bin/kubectl create secret docker-registry regcred --docker-username=xxxx --docker-password='xxxxxx' --docker-email=xxxxx --dry-run=client -o yaml
+             ## Copy redis password to tlc namespace
+             /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f -
+             
              # This is how to deploy without fluxdc
              #/usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
              #/usr/sbin/helm repo update
@@ -245,10 +247,6 @@ jobs:
                newgrp docker
 
                docker --version
-
-      - name: Log into docker.io as azureuser
-        continue-on-error: true
-        run: docker login docker.io 
       
       - name: Run a local containerized Docker registry   
         shell: bash
@@ -313,7 +311,7 @@ jobs:
               <h1 align=center>Hello from inside tlc-alpine-app!</h1> 
           </td></tr><tr><td>                                                
           <div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: left;">
-              <p>TLC Alpine App is a Kubernetes deployment that establishes a 'backend' connection to a separate Redis statefulset (deployed via Helm or Flux and Helm) in the same namespace</p> 
+              <p>TLC Alpine App is a Kubernetes deployment that establishes a 'backend' connection to a separate Redis statefulset deployed via Helm or Flux and Helm</p> 
               <p>Once connected to Redis on the backend, HTML is automatically generated and written to a K8s configMap.</p>
               <p>The configmap is HTML content that is mounted and served HTTP via nginx container (port 80) and the python app container (port 8080)</p>
               <p>The nginx port 80 server data is also routed via k8s cluster's Traefik default for the FQDN, e.g. http://tlc.eastus2.cloudapp.azure.com/</p>
