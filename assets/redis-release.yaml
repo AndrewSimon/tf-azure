@@ -16,7 +16,7 @@ spec:
   values:
     image:
       # Flux will parse the comments below and automatically replace these lines
-      repository: docker.io/library/redis # {"$imagepolicy": "flux-system:redis-policy:repository"}
+      repository: redis # {"$imagepolicy": "flux-system:redis-policy:repository"}
       tag: 7.2.4 # {"$imagepolicy": "flux-system:redis-policy:tag"}
 ---
 apiVersion: image.toolkit.fluxcd.io/v1
