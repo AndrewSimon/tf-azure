@@ -160,24 +160,18 @@ jobs:
       
       - name: Checkout Code
         uses: actions/checkout@v4      
-
-      - name: Create Docker config directory
-        run: mkdir -p ~/.docker || true
-
-      - name: Write config.json and create docker registry credential secret
-        continue-on-error: true   
-        run: |
-          cat << 'EOJ' > ~/.docker/config.json
-          ${{ secrets.DOCKER_CONFIG_JSON }}
-          EOJ
-          # /usr/local/bin/kubectl create secret -n flux-system docker-registry regcred --from-file=.dockerconfigjson=~/.docker/config.json
-          /usr/local/bin/kubectl create secret generic -n flux-system regcred --type=kubernetes.io/dockerconfigjson  --from-literal=.dockerconfigjson=${{ secrets.DOCKER_CONFIG_JSON }}
-                      
+                                            
       - name: Create App Namespace (tlc)
         continue-on-error: true   
         id: tlc-namespace      
         shell: bash
         run: /usr/local/bin/kubectl create ns tlc
+      
+      - name: Create CICD Namespace (flux-system)      
+        continue-on-error: true   
+        id: flux-namespace      
+        shell: bash
+        run: /usr/local/bin/kubectl create ns flux-system
         
       - name: Deploy Fluxcd Community Version
         continue-on-error: true
@@ -197,7 +191,6 @@ jobs:
              #/usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
              #/usr/sbin/helm repo update
              #/usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
-
 
       - name: Install Docker CE
         shell: bash
