@@ -204,6 +204,7 @@ VM_NAME = NAME + SUFFIX
 NIC_NAME = NIC_BNAME + SUFFIX
 IP_NAME = IP_BNAME + SUFFIX
 DISK_NAME = DISK_BNAME + SUFFIX
+SSH_KEY_NAME = "DynamicGHR"
 SUBNET_ID = "${azurerm_subnet.public.id}"
 NSG_ID = "${azurerm_network_security_group.public.id}"
 UAI_ID = "${azurerm_user_assigned_identity.vm_identity.id}"
@@ -365,6 +366,10 @@ EOF
     compute_client = ComputeManagementClient(credential, SUBSCRIPTION_ID)
     network_client = NetworkManagementClient(credential, SUBSCRIPTION_ID)
     
+    print(f"Fetching SSH public key '{SSH_KEY_NAME}'...")
+    ssh_key_resource = compute_client.ssh_public_keys.get(resource_group_name=RESOURCE_GROUP,ssh_public_key_name=SSH_KEY_NAME)
+    public_key_data = ssh_key_resource.public_key
+    
     # Create Public IP
     print("Creating public IP address...")
     ip_poller = network_client.public_ip_addresses.begin_create_or_update(
@@ -438,6 +443,17 @@ EOF
             "computerName": VM_NAME,
             "adminUsername": "azureuser",
             "adminPassword": ADMIN_PASS,
+            "linuxConfiguration": {
+                "disablePasswordAuthentication": False,
+                "ssh": {
+                    "publicKeys": [
+                        {
+                            "path": "/home/azureuser/.ssh/authorized_keys",
+                            "keyData": public_key_data
+                        }
+                    ]
+                }
+            }
         },
          "networkProfile": {
             "networkInterfaces": [{
