@@ -328,7 +328,7 @@ EOF
     echo "Number of pending jobs: $PENDING_COUNT"
     if (( $PENDING_COUNT == 0 )) ; then
       echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
-      sleep 5 # Set this to be a few ssconds less than your gh runner job timeout if you want runner to hang around 
+      sleep 5 # Set this to the amount of time to hang around as a registered runner with no jobs to run
       TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
       curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
       exit 0
