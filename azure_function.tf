@@ -204,6 +204,7 @@ VM_NAME = NAME + SUFFIX
 NIC_NAME = NIC_BNAME + SUFFIX
 IP_NAME = IP_BNAME + SUFFIX
 DISK_NAME = DISK_BNAME + SUFFIX
+SSH_KEY_NAME = "DynamicGHR"
 SUBNET_ID = "${azurerm_subnet.public.id}"
 NSG_ID = "${azurerm_network_security_group.public.id}"
 UAI_ID = "${azurerm_user_assigned_identity.vm_identity.id}"
@@ -326,8 +327,8 @@ EOF
     ')
     echo "Number of pending jobs: $PENDING_COUNT"
     if (( $PENDING_COUNT == 0 )) ; then
-      echo "No jobs pending, this runner is not needed, terminating in 1 hour!"
-      sleep 3540 # Set this to be a few ssconds less than your gh runner job timeout 
+      echo "No jobs pending, this runner is not needed, terminating in 5 seconds!"
+      sleep 5 # Set this to the amount of time to hang around as a registered runner with no jobs to run
       TOKEN=$(curl -s -G -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token" --data-urlencode "api-version=2018-02-01" --data-urlencode "resource=https://management.azure.com/" | jq -r .access_token)
       curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}?api-version=2025-11-01"
       exit 0
@@ -364,6 +365,10 @@ EOF
     # Initialize clients
     compute_client = ComputeManagementClient(credential, SUBSCRIPTION_ID)
     network_client = NetworkManagementClient(credential, SUBSCRIPTION_ID)
+    
+    print(f"Fetching SSH public key '{SSH_KEY_NAME}'...")
+    ssh_key_resource = compute_client.ssh_public_keys.get(resource_group_name=RESOURCE_GROUP,ssh_public_key_name=SSH_KEY_NAME)
+    public_key_data = ssh_key_resource.public_key
     
     # Create Public IP
     print("Creating public IP address...")
@@ -439,6 +444,17 @@ EOF
             "computerName": VM_NAME,
             "adminUsername": "azureuser",
             "adminPassword": ADMIN_PASS,
+            "linuxConfiguration": {
+                "disablePasswordAuthentication": False,
+                "ssh": {
+                    "publicKeys": [
+                        {
+                            "path": "/home/azureuser/.ssh/authorized_keys",
+                            "keyData": public_key_data
+                        }
+                    ]
+                }
+            }
         },
          "networkProfile": {
             "networkInterfaces": [{
