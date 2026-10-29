@@ -3,6 +3,17 @@ variable "msi_id" {
   description = "The Managed Service Identity ID. If this value isn't null (the default), 'data.azurerm_client_config.current.object_id' will be set to this value."
   default     = null
 }
+variable "authkeys" {
+  description = "Path to the local SSH authoirzied keys file"
+  type        = string
+  default     = "~/.ssh/authorized_keys"
+}
+variable "keyname" {
+  description = "Name of the Azure SSH Public Key resource"
+  type        = string
+  default     = "DynamicGHR"
+}
+
 variable "adminpass" {
   type        = string
   description = "VM and DB admin password. Never commit real passwords to a repo"
