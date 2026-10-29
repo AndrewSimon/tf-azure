@@ -100,6 +100,6 @@ jobs:
         shell: bash
         run:  |
                date
-               
+               sleep 300 # Sleep 3 minutes before job goes away 
 #  Lifecycle termination of node at job completion is an 'administrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
