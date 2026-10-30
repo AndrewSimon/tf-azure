@@ -184,7 +184,7 @@ jobs:
         id: k3s-redis-deploy      
         shell: bash
         run: |
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-repo.yaml
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/bitnami-repo.yaml
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
              ## Copy redis password to tlc namespace
              /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f -
@@ -418,7 +418,7 @@ jobs:
         continue-on-error: true
         id: k3s-alpine-deploy      
         shell: bash
-        run: /usr/local/bin/kubectl -n tlc apply -f ./assets/svc.yaml
+        run: /usr/local/bin/kubectl -n tlc apply -f ./assets/tlc-alpine-app.yaml
 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
