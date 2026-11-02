@@ -1,5 +1,5 @@
 name: 'Terraform Plan, Deploy and Python Build, Deploy'
-# v1
+# v2
 on: [push]
 
 permissions:
