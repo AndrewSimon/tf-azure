@@ -53,12 +53,11 @@ jobs:
           ## INSTEAD WE FETCH MS'S 24.04 PACKAGE FROM HERE - LATEST ONES ARE AT THE BOTTOM OF THE PAGE
           # https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/
           sudo apt-get update
+          echo "Fetching azure function core tool deb package in silent mode, please be patient"
           curl -sSL -o ./func.deb https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/azure-functions-core-tools_4.9.0-1_amd64.deb 
-          sudo apt -y install ./func.deb
+          sudo apt-get -y install ./func.deb
           # Update APT and install the latest Core Tools (v4)
 
-
-          
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
