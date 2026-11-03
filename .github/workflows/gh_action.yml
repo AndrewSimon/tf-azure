@@ -1,5 +1,5 @@
-name: 'Terraform Plan, Deploy and Python Build, Deploy'
-# v2
+name: 'Terraform Partial Destroy v1'
+# v1
 on: [push]
 
 permissions:
@@ -12,52 +12,20 @@ env:
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   GH-PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-  
   ARM_USE_OIDC: "true"
-  FQDN: tlc.eastus2.cloudapp.azure.com
 
 jobs:
-  infrastructure:
+  terraform-partial-destroy:
     runs-on: ubuntu-latest
     environment: public
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies to be able to test function_app.py build 
-        run: |
-          python -m pip install --upgrade pip
-          pip install urllib3 PyJWT cryptography azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-functions azure-keyvault-secrets
-          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
-          
-          ## BECAUSE OF UNRELIABLE CROSS PLATFORM REPO KEYS, THIS IS HIGHLY PRONE TO BREAK
-          # This version is deprecated: Install the Microsoft package repository GPG key
-          #curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-          #sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
-
-          # Add the official Microsoft APT source list for Ubuntu
-          #sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
-          #sudo install -m 0755 -d /etc/apt/keyrings
-          #curl -fsSL https://packages.microsoft.com/keys/microsoft-2025.asc | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/EE4D7792F748182B.gpg
-          ##sudo rm -rf /etc/apt/keyrings/EE4D7792F748182B.gpg
-          #sudo gpg --batch --no-tty --keyserver hkps://keyserver.ubuntu.com --recv-keys EE4D7792F748182B
-          #sudo gpg --batch --no-tty -a --export EE4D7792F748182B | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/EE4D7792F748182B.gpg
-          #sudo chmod 644 /etc/apt/keyrings/EE4D7792F748182B.gpg
-          #sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/EE4D7792F748182B.gpg]  https://packages.microsoft.com/repos/microsoft-ubuntu-resolute-prod/apt stable main" >> /etc/apt/sources.list.d/dotnetdev.list'
-          
-          ## INSTEAD WE FETCH MS'S 24.04 PACKAGE FROM HERE - LATEST ONES ARE AT THE BOTTOM OF THE PAGE
-          # https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/
-          # Update APT and install the latest Core Tools (v4)
-          sudo apt-get update
-          echo "Fetching azure function core tool deb package in silent mode, please be patient"
-          curl -sSL -o ./func.deb https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/azure-functions-core-tools_4.9.0-1_amd64.deb 
-          sudo apt-get -y install ./func.deb
-
+ #     - name: Setup Python
+ #       uses: actions/setup-python@v5
+ #       with:
+ #         python-version: '3.11'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
@@ -73,391 +41,38 @@ jobs:
           environment: azurecloud
           allow-no-subscriptions: true
        
-      - name: Verify Login (Show Azure Account Details)
-        run: |
-          az account show
+#      - name: Verify Login (Show Azure Account Details)
+#        run: |
+#          az account show
 
       # Initialize the working directory containing configuration files
       - name: Terraform Init
         id: init
         run: terraform init
-# This step needed when we need a new function app upload
-#      - name: Terraform Destroy terraform_data.upload_function
-#        id: delete-upload-function
-#        run: terraform destroy -refresh=false -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
-#      - name: Terraform Destroy Upload (only)
-#        id: destroy
-#        run: terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
-      
-      - name: Terraform Apply and Python Build
-        id: apply
+      - name: Terraform Destroy
+        id: destroy
         run: |
           touch function_app.py
-          terraform apply -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }}
-      
-      # NEVER cat or otherwise display function_app.py as it contains secrets
-      - name: Test function_app.py
-        id: test
-        run: |
-          python function_app.py  
-      
-  app:
+          # terraform destroy -auto-approve -refresh=false -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target azurerm_key_vault_secret.adminpass -target azurerm_key_vault_secret.token -target azurerm_key_vault_secret.webhook -target azurerm_key_vault_key.key -target azurerm_role_assignment.rg_contributor -target=terraform_data.upload_function -target azurerm_function_app_flex_consumption.demo
+          terraform destroy -auto-approve -refresh=false -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} 
+#  complete-lifecycle:
     #runs-on: ubuntu-latest # For GH Runners, not self-hosted
-    runs-on: self-hosted
-        # Sets the execution time limit for this specific job to 1 hour
-    timeout-minutes: 60 # A way to controi costs
-    continue-on-error: true # ALL jobs need this to reach runner hook's lifecycle
-    environment: public 
+#    runs-on: self-hosted
+#    continue-on-error: true # ALL jobs need this to reach runner hook's lifecycle
+#    environment: public 
 #    permissions:
 #      id-token: write # Required for OIDC authentication
 #      contents: read
-    steps:
-      - name: Run bash shell and print a command out (Install and configure k3s)
-        continue-on-error: true 
-        shell: bash
-        run:  |
-               date
-               # K8s port for .kube/config
-               # sudo firewall-cmd --permanent --add-port=6443/tcp
-               # Standard HTTPS Port
-               # sudo firewall-cmd --permanent --add-port=443/tcp
-               # NodePort patch for headlamp service
-               # sudo firewall-cmd --permanent --add-port=30443/tcp
-               # sudo firewall-cmd --reload
-               # TOKEN=$(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-               IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
-               export FQDN=${{ env.FQDN }}
-               echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
-               curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-               curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.37.2-rc2+k3s1 sh -s - server --tls-san $IP
-               # curl -sfL https://get.k3s.io | sh -s - server
-               sudo systemctl start k3s
-               systemctl status k3s.service
-               sudo mkdir /root/.kube /home/azureuser/.kube/ || true
-               sudo cp /etc/rancher/k3s/k3s.yaml /root/.kube/config
-               sudo cp /etc/rancher/k3s/k3s.yaml /home/azureuser/.kube/config
-               sudo chown -R azureuser:azureuser /home/azureuser/.kube
-               # Make k3s.yaml available for download to end-user
-               sudo cp /etc/rancher/k3s/k3s.yaml /tmp
-               # Make users' k3s.yaml use public IP
-               sudo sed -i "s/127.0.0.1/$IP/g" /tmp/k3s.yaml
-               sudo chmod 777 /tmp/k3s.yaml
-               # Ready node takes ~30 seconds 
-               sleep 15
-
-      - name: Install Helm
-        continue-on-error: true
-        id: helm-install  
-        shell: bash
-        run:  |     
-              sudo apt-get install curl gpg apt-transport-https --yes
-              [ ! -f "/usr/sbin/helm" ] && curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-              [ ! -f "/usr/sbin/helm" ] && echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-              sudo apt-get update -y && sudo apt-get -y install helm    
-
-#      - name: Run Headlamp install
-#        continue-on-error: true
-#        id: headlamp-step      
+#   steps:
+#  Demo workflow. Replace the steps below with your actual workflow
+#      - name: Run Python shell commands to check os and node name, then sleep 30 seconds
+#        shell: python
+#        run:  |
+#           import platform; import time; print(platform.platform()); print(platform.node()); time.sleep(30);
+#      - name: Run bash shell and print a command out
 #        shell: bash
 #        run:  |
-#               export FQDN=${{ env.FQDN }}
-#               /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
-#               /usr/sbin/helm repo update
-#               /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
-#               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
-#               echo "Copy and paste the following on your local device command-line:"
-#               echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
-#               echo "kubectl create token headlamp --namespace kube-system"
-#               echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
-#               
-#               kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
-      
-      - name: Checkout Code
-        uses: actions/checkout@v4      
-                                            
-      - name: Create App Namespace (tlc)
-        continue-on-error: true   
-        id: tlc-namespace      
-        shell: bash
-        run: /usr/local/bin/kubectl create ns tlc
-      
-      - name: Create CICD Namespace (flux-system)      
-        continue-on-error: true   
-        id: flux-namespace      
-        shell: bash
-        run: /usr/local/bin/kubectl create ns flux-system
-        
-      - name: Deploy Fluxcd Community Version
-        continue-on-error: true
-        id: k3s-fluxcd-deploy      
-        shell: bash
-        run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
-        
-      - name: Deploy flux deployed releases
-        continue-on-error: true
-        id: k3s-redis-deploy      
-        shell: bash
-        run: |
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/bitnami-repo.yaml
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/kubernetes-sigs-repo.yaml
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/headlamp-release.yaml
-
-      - name: Install Docker CE
-        shell: bash
-        run: |
-               date
-               id
-               set -e # Exit immediately with any non-0 exit
-
-
-               echo "========================================="
-               echo "   Installing Docker on Ubuntu Server    "
-               echo "========================================="
-
-               # 1. Update the apt package index and install prerequisites
-               echo "--> Updating package index and installing prerequisites..."
-               sudo apt-get update -y
-               sudo apt-get install -y ca-certificates curl gnupg
-
-               # 2. Add Docker's official GPG key
-               echo "--> Adding Docker's official GPG key..."
-               sudo install -m 0755 -d /etc/apt/keyrings
-               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/docker.gpg
-               sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-               # 3. Set up the Docker repository
-               echo "--> Setting up the Docker repository..."
-               echo \
-                 "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-                 $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-                 sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-               # 4. Update the package index again with Docker packages included
-               echo "--> Updating package index with Docker repository..."
-               sudo apt-get update -y
-
-               # 5. Install Docker Engine, CLI, containerd, and Docker Compose
-               echo "--> Installing Docker packages..."
-               sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-               # 6. Verify the installation
-               echo "--> Verifying installation..."
-               sudo docker --version
-               sudo docker compose version
-
-               echo "========================================="
-               echo "      Docker Installed Successfully      "
-               echo "========================================="
-
-               # 7. Post-installation step to run Docker without sudo
-               echo "--> Adding $USER to the docker group..."
-               sudo usermod -aG docker azureuser
-               newgrp docker
-
-               docker --version
-      
-      - name: Run a local containerized Docker registry   
-        shell: bash
-        run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
-      
-      - name: Generate Backend Files - app.py
-        run: |
-          export REDIS_PASSWORD=$(/usr/local/bin/kubectl get secret --namespace tlc redis -o jsonpath="{.data.redis-password}" | base64 -d)
-          mkdir alpine-build || true
-          cat << 'EOF' > alpine-build/app.py
-          import os
-          import redis
-          import time
-          import http.server
-          import socketserver
-          import threading
-          # from redis.cluster import RedisCluster
-          from kubernetes import client, config
-          from kubernetes.client.rest import ApiException
-
-          # 1. Connection Configurations from Environment Variables
-          REDIS_HOST = "redis-master.flux-system.svc.cluster.local"
-          REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-          REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
-          CONFIGMAP_NAME = os.getenv("CONFIGMAP_NAME", "html-output-config")
-          NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
-
-          def htserver():
-              PORT = 8080
-              Handler = http.server.SimpleHTTPRequestHandler
-
-              try:
-                  with socketserver.TCPServer(("", PORT), Handler) as httpd:
-                      print(f"Serving HTTP on port {PORT} (http://localhost:{PORT}/) ...")
-                      httpd.serve_forever()
-              except KeyboardInterrupt:
-                  print("\nServer stopped by user.")
-              except Exception as e:
-                  print(f"Error starting server: {e}")
-
-          def main():
-              # 2. Interact with Redis
-              try:
-                  r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD,decode_responses=True)
-                  # rc = RedisCluster(host='redis-headless', port=6379, password=REDIS_PASSWORD, decode_responses=True)
-                  visits = r.incr("counter")
-                  info = r.info()
-                  print(f"Successfully connected to Redis. Current counter: {visits}")
-              except Exception as e:
-                  print(f"Failed to connect to Redis: {e}")
-                  visits = "Unavailable"
-                  htserver()
-
-              # 3. Generate HTML Content
-              html_content = f"""<!DOCTYPE html>
-          <html>                               
-          <head>                                         
-              <title>TLC Alpine App</title>
-          </head>                                                  
-          <body style="font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center;">
-          <table><tr><td>                                
-              <h1 align=center>Hello from inside tlc-alpine-app!</h1> 
-          </td></tr><tr><td>                                                
-          <div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: left;">
-              <p>TLC Alpine App is a Kubernetes deployment that establishes a 'backend' connection to a separate Redis statefulset deployed via Helm or Flux and Helm</p> 
-              <p>Once connected to Redis on the backend, HTML is automatically generated and written to a K8s configMap.</p>
-              <p>The configmap is HTML content that is mounted and served HTTP via nginx container (port 80) and the python app container (port 8080)</p>
-              <p>The nginx port 80 server data is also routed via k8s cluster's Traefik default for the FQDN, e.g. http://tlc.eastus2.cloudapp.azure.com/</p>
-              <p>Redis has a built-in counter and tlc-alpine-app will increment on container startup only (visits to FQDN home page do not increment the Redis counter)</p>
-              <p> The Redis counter is shown as 'Total Hits from Redis', below.  Theoretically, other apps could update the counter, accordingly.</p>
-              <li><strong>Total Hits from Redis:</strong> {visits}</li>
-              <li>Connected clients: {info['connected_clients']}</li>
-              <li>Used memory (human): {info['used_memory_human']}</li>
-              <li>Uptime in days: {info['uptime_in_days']}</li>
-              <li>Total commands processed since Redis db instantiated: {info['total_commands_processed']}</li>
-              <p>If you called your cloudapp tlc in eastus2, you can visit it's headlamp at http://tlc.eastus2.cloudapp.azure.com:30443</p>
-          </td></tr></table>
-          </div>                                            
-          </body>
-          </html>
-          """
-
-              # 4. Authenticate and interact with Kubernetes API
-              try:
-                  # Configures the client when running inside a Pod
-                  config.load_incluster_config()
-                  v1 = client.CoreV1Api()
-        
-                  # Read the existing ConfigMap to safely update it
-                  try:
-                      config_map = v1.read_namespaced_config_map(name=CONFIGMAP_NAME, namespace=NAMESPACE)
-                      config_map.data = {"index.html": html_content}
-                      v1.replace_namespaced_config_map(name=CONFIGMAP_NAME, namespace=NAMESPACE, body=config_map)
-                      print(f"Successfully updated ConfigMap '{CONFIGMAP_NAME}' in namespace '{NAMESPACE}'.")
-                      time.sleep(1)
-                      htserver()
-                  except ApiException as e:
-                      if e.status == 404:
-                          # Create it if it doesn't exist
-                          meta = client.V1ObjectMeta(name=CONFIGMAP_NAME)
-                          config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=meta, data={"index.html": html_content})
-                          v1.create_namespaced_config_map(namespace=NAMESPACE, body=config_map)
-                          print(f"Successfully created ConfigMap '{CONFIGMAP_NAME}' in namespace '{NAMESPACE}'.")
-                          htserver()
-                      else:
-                          raise e
-                          htserver()
-
-              except Exception as e:
-                  print(f"Failed to update Kubernetes ConfigMap: {e}")
-                  htserver()
-
-          if __name__ == "__main__":
-              main()
-
-          EOF
-
-      # =========================================================================
-      # STEP 2: Create the Python Dependencies (requirements.txt)
-      # =========================================================================
-      - name: Create requirements.txt
-        run: |
-          cat << 'EOF' > alpine-build/requirements.txt
-          redis==5.0.1
-          kubernetes==31.0.0
-          EOF
-
-      # =========================================================================
-      # STEP 3: Create default index.html for the container
-      # =========================================================================
-      - name: Create index.html
-        run: |
-          cat << 'EOF' > alpine-build/index.html
-          <h1>The tlc-alpine-app python script has not run successfully, sorry</h1>
-          <p>This is default content so the webserver can start</p>
-          EOF
-
-
-      # Optional: Verify the files exist and look correct in the Actions logs
-      - name: Verify generated files
-        run: |
-          echo "=== Verifying app.py exists ==="
-          cat alpine-build/app.py
-          echo "=== Verifying requirements.txt contents ==="
-          cat alpine-build/requirements.txt
-
-      - name: Change workdir, make Dockerfile, run docker build, push to local registry
-        shell: bash
-        run: | 
-             cd alpine-build
-             echo "FROM alpine:latest" > Dockerfile
-             echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
-             echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
-             echo "COPY requirements.txt ." >> Dockerfile
-             echo "COPY app.py ." >> Dockerfile
-             echo "RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps" >> Dockerfile
-             echo "CMD [\"python\", \"app.py\"]" >> Dockerfile  
-             sudo docker build -t tlc-alpine-app .
-             # Show new container is alpine, not ubuntu server  
-             sudo docker run --rm tlc-alpine-app cat /etc/os-release
+#               date
                
-             sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
-             sudo docker push localhost:5000/tlc-alpine-app:latest     
-      # Need to checkout code again, this time for the k3s assets
-      - name: Checkout Code
-        uses: actions/checkout@v4      
-      
-      - name: May have to wait a few more seconds for flux deployed resources to exist
-        continue-on-error: true
-        id: patch-flux-deploys      
-        shell: bash     
-        run: |
-             sleep 15
-             ## Copy redis password to tlc namespace    
-             /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
-             # /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'             
-             #/usr/local/bin/kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
- 
-      - name: Deploy tlc-alpine-app to k3s
-        continue-on-error: true
-        id: k3s-alpine-deploy      
-        shell: bash
-        run: /usr/local/bin/kubectl -n tlc apply -f ./assets/tlc-alpine-app.yaml
-
-      - name: Instructions on obtaining a headlamp token
-        continue-on-error: true
-        id: cred-step      
-        shell: bash
-        run: |
-             IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
-             echo "************************************"
-             echo ""
-             echo " Copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
-             echo " To get a token, run: ssh azureuser@$IP -n \"/usr/local/bin/kubectl create token headlamp --namespace kube-system\""
-             echo ""             
-             echo "************************************"
-
-      - name: Run sleep 45  minutes to keep runner up
-        continue-on-error: true
-        id: sleep-step      
-        shell: bash
-        run:  sleep 2700
-       
 #  Lifecycle termination of node at job completion is an 'administrator' function controlled
 #  via ACTIONS_RUNNER_HOOK_JOB_COMPLETED and not available to workflows for 'security reasons' 
