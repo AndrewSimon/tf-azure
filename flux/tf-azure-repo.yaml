@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: tf-azure-repo
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://github.com/AndrewSimon/tf-azure.git # Replace with your repository URL
+  ref:
+    branch: k8s
