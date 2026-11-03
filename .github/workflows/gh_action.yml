@@ -198,10 +198,8 @@ jobs:
         id: k3s-redis-deploy      
         shell: bash
         run: |
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/bitnami-repo.yaml
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/kubernetes-sigs-repo.yaml
-             /usr/local/bin/kubectl -n flux-system apply -f ./assets/headlamp-release.yaml
+             # Add manifests to flux directory to grow the platform
+             /usr/local/bin/kubectl -n flux-system apply -f ./flux
 
       - name: Install Docker CE
         shell: bash
@@ -438,7 +436,7 @@ jobs:
         continue-on-error: true
         id: k3s-alpine-deploy      
         shell: bash
-        run: /usr/local/bin/kubectl -n tlc apply -f ./assets/tlc-alpine-app.yaml
+        run: /usr/local/bin/kubectl -n tlc apply -f ./charts/tlc-alpine-app.yaml
 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
