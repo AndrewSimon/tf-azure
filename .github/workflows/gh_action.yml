@@ -195,9 +195,11 @@ jobs:
         
       - name: Deploy flux deployed releases
         continue-on-error: true
-        id: k3s-redis-deploy      
+        id: k3s-flux-deployed-apps      
         shell: bash
         run: |
+             # Must give flux a few seconds to download and run job that created crds, etc
+             sleep 15
              # Add manifests to flux directory to grow the platform
              /usr/local/bin/kubectl apply -f ./flux
 
@@ -426,7 +428,7 @@ jobs:
         id: patch-flux-deploys      
         shell: bash     
         run: |
-             sleep 15
+             sleep 1
              ## Copy redis password to tlc namespace    
              /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
              # /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'             
