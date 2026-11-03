@@ -155,22 +155,22 @@ jobs:
               [ ! -f "/usr/sbin/helm" ] && echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
               sudo apt-get update -y && sudo apt-get -y install helm    
 
-      - name: Run Headlamp install
-        continue-on-error: true
-        id: headlamp-step      
-        shell: bash
-        run:  |
-               export FQDN=${{ env.FQDN }}
-               /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
-               /usr/sbin/helm repo update
-               /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
-               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
-               echo "Copy and paste the following on your local device command-line:"
-               echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
-               echo "kubectl create token headlamp --namespace kube-system"
-               echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
-               
-               kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
+#      - name: Run Headlamp install
+#        continue-on-error: true
+#        id: headlamp-step      
+#        shell: bash
+#        run:  |
+#               export FQDN=${{ env.FQDN }}
+#               /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
+#               /usr/sbin/helm repo update
+#               /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
+#               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
+#               echo "Copy and paste the following on your local device command-line:"
+#               echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
+#               echo "kubectl create token headlamp --namespace kube-system"
+#               echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
+#               
+#               kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
       
       - name: Checkout Code
         uses: actions/checkout@v4      
@@ -193,20 +193,15 @@ jobs:
         shell: bash
         run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
         
-      - name: Deploy redis and copy redis secret to tlc namepsace
+      - name: Deploy flux deployed releases
         continue-on-error: true
         id: k3s-redis-deploy      
         shell: bash
         run: |
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/bitnami-repo.yaml
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-             # Note: flux has not yet reconciled redis helm chart, redis secret does not yet exist
-             
-             
-             # This is how to deploy without fluxdc
-             #/usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
-             #/usr/sbin/helm repo update
-             #/usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/kubernetes-sigs-repo.yaml
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/headlamp-release.yaml
 
       - name: Install Docker CE
         shell: bash
@@ -428,16 +423,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4      
       
-      - name: May have to wait a few more seconds for secret to exist before password copy will work
+      - name: May have to wait a few more seconds for flux deployed resources to exist
         continue-on-error: true
-        id: copy-redis-passwd      
+        id: patch-flux-deploys      
         shell: bash     
         run: |
-             sleep 1
+             sleep 15
              ## Copy redis password to tlc namespace    
              /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
+             /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'             
+             /usr/local/bin/kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
  
-
       - name: Deploy tlc-alpine-app to k3s
         continue-on-error: true
         id: k3s-alpine-deploy      
