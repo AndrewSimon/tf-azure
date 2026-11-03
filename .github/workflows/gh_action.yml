@@ -39,7 +39,7 @@ jobs:
           # This version is deprecated: Install the Microsoft package repository GPG key
           #curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
           #sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
-          #
+
           # Add the official Microsoft APT source list for Ubuntu
           #sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
           #sudo install -m 0755 -d /etc/apt/keyrings
@@ -52,11 +52,12 @@ jobs:
           
           ## INSTEAD WE FETCH MS'S 24.04 PACKAGE FROM HERE - LATEST ONES ARE AT THE BOTTOM OF THE PAGE
           # https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/
+          # Update APT and install the latest Core Tools (v4)
           sudo apt-get update
           echo "Fetching azure function core tool deb package in silent mode, please be patient"
           curl -sSL -o ./func.deb https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/azure-functions-core-tools_4.9.0-1_amd64.deb 
           sudo apt-get -y install ./func.deb
-          # Update APT and install the latest Core Tools (v4)
+
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
@@ -154,22 +155,22 @@ jobs:
               [ ! -f "/usr/sbin/helm" ] && echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
               sudo apt-get update -y && sudo apt-get -y install helm    
 
-      - name: Run Headlamp install
-        continue-on-error: true
-        id: headlamp-step      
-        shell: bash
-        run:  |
-               export FQDN=${{ env.FQDN }}
-               /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
-               /usr/sbin/helm repo update
-               /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
-               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
-               echo "Copy and paste the following on your local device command-line:"
-               echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
-               echo "kubectl create token headlamp --namespace kube-system"
-               echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
-               
-               kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
+#      - name: Run Headlamp install
+#        continue-on-error: true
+#        id: headlamp-step      
+#        shell: bash
+#        run:  |
+#               export FQDN=${{ env.FQDN }}
+#               /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
+#               /usr/sbin/helm repo update
+#               /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
+#               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
+#               echo "Copy and paste the following on your local device command-line:"
+#               echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
+#               echo "kubectl create token headlamp --namespace kube-system"
+#               echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
+#               
+#               kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
       
       - name: Checkout Code
         uses: actions/checkout@v4      
@@ -192,20 +193,15 @@ jobs:
         shell: bash
         run: /usr/sbin/helm upgrade --install flux2 oci://ghcr.io/fluxcd-community/charts/flux2 --namespace flux-system --create-namespace
         
-      - name: Deploy redis and copy redis secret to tlc namepsace
+      - name: Deploy flux deployed releases
         continue-on-error: true
         id: k3s-redis-deploy      
         shell: bash
         run: |
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/bitnami-repo.yaml
              /usr/local/bin/kubectl -n flux-system apply -f ./assets/redis-release.yaml   
-             # Note: flux has not yet reconciled redis helm chart, redis secret does not yet exist
-             
-             
-             # This is how to deploy without fluxdc
-             #/usr/sbin/helm repo add bitnami https://charts.bitnami.com/bitnami
-             #/usr/sbin/helm repo update
-             #/usr/sbin/helm upgrade --install redis bitnami/redis --namespace tlc
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/kubernetes-sigs-repo.yaml
+             /usr/local/bin/kubectl -n flux-system apply -f ./assets/headlamp-release.yaml
 
       - name: Install Docker CE
         shell: bash
@@ -406,7 +402,7 @@ jobs:
           echo "=== Verifying requirements.txt contents ==="
           cat alpine-build/requirements.txt
 
-      - name: Create workdir and Dockerfile, run docker app build, push to local registry
+      - name: Change workdir, make Dockerfile, run docker build, push to local registry
         shell: bash
         run: | 
              cd alpine-build
@@ -419,7 +415,7 @@ jobs:
              echo "CMD [\"python\", \"app.py\"]" >> Dockerfile  
              sudo docker build -t tlc-alpine-app .
              # Show new container is alpine, not ubuntu server  
-             sudo docker run --rm tlc-alpine-app cat /etc/os-release               
+             sudo docker run --rm tlc-alpine-app cat /etc/os-release
                
              sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
              sudo docker push localhost:5000/tlc-alpine-app:latest     
@@ -427,16 +423,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4      
       
-      - name: May have to wait a few more seconds for secret to exist before password copy will work
+      - name: May have to wait a few more seconds for flux deployed resources to exist
         continue-on-error: true
-        id: copy-redis-passwd      
+        id: patch-flux-deploys      
         shell: bash     
         run: |
-             sleep 1
+             sleep 15
              ## Copy redis password to tlc namespace    
              /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
+             # /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'             
+             #/usr/local/bin/kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
  
-
       - name: Deploy tlc-alpine-app to k3s
         continue-on-error: true
         id: k3s-alpine-deploy      
