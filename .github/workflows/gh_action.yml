@@ -34,17 +34,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install urllib3 PyJWT cryptography azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-functions azure-keyvault-secrets
           pip install --target=".python_packages/lib/site-packages" -r requirements.txt
-          # Install the Microsoft package repository GPG key
-          curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-          sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
-
-          # Add the official Microsoft APT source list for Ubuntu
-          sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
-
-          # Update APT and install the latest Core Tools (v4)
-          sudo apt-get update
-          sudo apt-get install azure-functions-core-tools-4
           
+          ## BECAUSE OF UNRELIABLE CROSS PLATFORM REPO KEYS, THIS IS HIGHLY PRONE TO BREAK
+          # This version is deprecated: Install the Microsoft package repository GPG key
+          #curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
+          #sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+          #
+          # Add the official Microsoft APT source list for Ubuntu
+          #sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
+          #sudo install -m 0755 -d /etc/apt/keyrings
+          #curl -fsSL https://packages.microsoft.com/keys/microsoft-2025.asc | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/EE4D7792F748182B.gpg
+          ##sudo rm -rf /etc/apt/keyrings/EE4D7792F748182B.gpg
+          #sudo gpg --batch --no-tty --keyserver hkps://keyserver.ubuntu.com --recv-keys EE4D7792F748182B
+          #sudo gpg --batch --no-tty -a --export EE4D7792F748182B | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/EE4D7792F748182B.gpg
+          #sudo chmod 644 /etc/apt/keyrings/EE4D7792F748182B.gpg
+          #sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/EE4D7792F748182B.gpg]  https://packages.microsoft.com/repos/microsoft-ubuntu-resolute-prod/apt stable main" >> /etc/apt/sources.list.d/dotnetdev.list'
+          
+          ## INSTEAD WE FETCH MS'S 24.04 PACKAGE FROM HERE - LATEST ONES ARE AT THE BOTTOM OF THE PAGE
+          # https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/
+          sudo apt-get update
+          echo "Fetching azure function core tool deb package in silent mode, please be patient"
+          curl -sSL -o ./func.deb https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/azure-functions-core-tools_4.9.0-1_amd64.deb 
+          sudo apt-get -y install ./func.deb
+          # Update APT and install the latest Core Tools (v4)
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
@@ -115,7 +128,7 @@ jobs:
                export FQDN=${{ env.FQDN }}
                echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-               curl -sfL https://get.k3s.io | sh -s - server --tls-san $IP
+               curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.37.2-rc2+k3s1 sh -s - server --tls-san $IP
                # curl -sfL https://get.k3s.io | sh -s - server
                sudo systemctl start k3s
                systemctl status k3s.service

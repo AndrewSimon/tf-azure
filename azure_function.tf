@@ -35,27 +35,27 @@ resource "azurerm_role_assignment" "contributor" {
 #}
 
 # Generate SAS token for function code blob authorization
-data "azurerm_storage_account_blob_container_sas" "sas" {
-  connection_string = azurerm_storage_account.demo.primary_connection_string
-  container_name    = azurerm_storage_container.function_code_container.name
-  https_only        = true
-  expiry            = timeadd(time_static.sas.rfc3339, "8760h")
-  start             = time_static.sas.rfc3339
-  permissions {
-    read   = true
-    add    = true
-    create = false
-    write  = false
-    delete = true
-    list   = true
-  }
-
-  cache_control       = "max-age=5"
-  content_disposition = "inline"
-  content_encoding    = "deflate"
-  content_language    = "en-US"
-  content_type        = "application/json"
-}
+#data "azurerm_storage_account_blob_container_sas" "sas" {
+#  connection_string = azurerm_storage_account.demo.primary_connection_string
+#  container_name    = azurerm_storage_container.function_code_container.name
+#  https_only        = true
+#  expiry            = timeadd(time_static.sas.rfc3339, "8760h")
+#  start             = time_static.sas.rfc3339
+#  permissions {
+#    read   = true
+#    add    = true
+#    create = false
+#    write  = false
+#    delete = true
+#    list   = true
+#  }
+#
+#  cache_control       = "max-age=5"
+#  content_disposition = "inline"
+#  content_encoding    = "deflate"
+#  content_language    = "en-US"
+#  content_type        = "application/json"
+#}
 
 # Linux Function App (best for Python) - name must be unique!
 resource "azurerm_function_app_flex_consumption" "demo" {
