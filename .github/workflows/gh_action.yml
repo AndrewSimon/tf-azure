@@ -199,7 +199,7 @@ jobs:
         shell: bash
         run: |
              # Add manifests to flux directory to grow the platform
-             /usr/local/bin/kubectl -n flux-system apply -f ./flux
+             /usr/local/bin/kubectl apply -f ./flux
 
       - name: Install Docker CE
         shell: bash
@@ -432,11 +432,11 @@ jobs:
              # /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'             
              #/usr/local/bin/kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
  
-      - name: Deploy tlc-alpine-app to k3s
-        continue-on-error: true
-        id: k3s-alpine-deploy      
-        shell: bash
-        run: /usr/local/bin/kubectl -n tlc apply -f ./charts/tlc-alpine-app.yaml
+      #- name: Deploy tlc-alpine-app to k3s
+      #  continue-on-error: true
+      #  id: k3s-alpine-deploy      
+      #  shell: bash
+      #  run: /usr/local/bin/kubectl -n tlc apply -f ./charts/tlc-alpine-app.yaml
 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
