@@ -146,38 +146,6 @@ spec:
   ports:
   {{- .Values.tlcAlpineApp.ports | toYaml | nindent 2 }}
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-configmap-writer-role
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - create
-  - update
-  - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-configmap-writer-binding
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: '{{ include "tlc-alpine-app.fullname" . }}-configmap-writer-role'
-subjects:
-- kind: ServiceAccount
-  name: '{{ include "tlc-alpine-app.serviceAccountName" . }}'
-  namespace: '{{ .Release.Namespace }}'
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:

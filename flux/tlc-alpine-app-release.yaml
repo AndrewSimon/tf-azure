@@ -5,7 +5,7 @@ metadata:
   namespace: tlc
 spec:
   targetNamespace: tlc
-  interval: 5m
+  interval: 2m
   chart:
     spec:
       # Relative path starting exactly from the Git repository root
