@@ -128,7 +128,7 @@ jobs:
                export FQDN=${{ env.FQDN }}
                echo "Configuring Kubernetes access to IP address $IP with HTTPS access via $FQDN"
                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-               curl -sfL https://get.k3s.io | sh -s - server --tls-san $IP
+               curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.37.2-rc2+k3s1 sh -s - server --tls-san $IP
                # curl -sfL https://get.k3s.io | sh -s - server
                sudo systemctl start k3s
                systemctl status k3s.service
