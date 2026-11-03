@@ -297,7 +297,7 @@ resource "azurerm_federated_identity_credential" "github_repo_trust" {
   
   # Links the identity specifically to your repo's main branch environment
   subject             = "repo:${var.repo_name}:environment:public"
-  parent_id           = azurerm_user_assigned_identity.github_oidc.id
+  user_assigned_identity_id  = azurerm_user_assigned_identity.github_oidc.id
 }
 
 # 6. Create Role Assignment to access tlc-function-app
