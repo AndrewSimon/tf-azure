@@ -23,4 +23,4 @@ spec:
       secretName: headlamp
     service:
       type: NodePort                        # Changes the service type to NodePort
-      port: 80 
+      nodePort: 30443
