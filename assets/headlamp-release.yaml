@@ -1,21 +1,26 @@
-# redis-release.yaml
+# headlam-release.yaml
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: headlamp
 spec:
+  releaseName: headlamp
   interval: 5m
   targetNamespace: kube-system
   chart:
     spec:
       chart: headlamp
-      version: 18.x.x
+      version: 0.46.0
       sourceRef:
         kind: HelmRepository
         name: github
         namespace: flux-system
   values:
     image:
-      # Flux will parse the comments below and automatically replace these lines
-      repository: headlamp # {"$imagepolicy": "flux-system:redis-policy:repository"}
-      tag: latest # {"$imagepolicy": "flux-system:redis-policy:tag"}
+      repository: headlamp-k8s/headlamp
+      tag: latest
+    config:
+      secretName: headlamp
+    service:
+      type: NodePort                        # Changes the service type to NodePort
+      port: 80 
