@@ -39,7 +39,7 @@ jobs:
           # This version is deprecated: Install the Microsoft package repository GPG key
           #curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
           #sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
-          #
+
           # Add the official Microsoft APT source list for Ubuntu
           #sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
           #sudo install -m 0755 -d /etc/apt/keyrings
@@ -52,11 +52,12 @@ jobs:
           
           ## INSTEAD WE FETCH MS'S 24.04 PACKAGE FROM HERE - LATEST ONES ARE AT THE BOTTOM OF THE PAGE
           # https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/
+          # Update APT and install the latest Core Tools (v4)
           sudo apt-get update
           echo "Fetching azure function core tool deb package in silent mode, please be patient"
           curl -sSL -o ./func.deb https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/azure-functions-core-tools_4.9.0-1_amd64.deb 
           sudo apt-get -y install ./func.deb
-          # Update APT and install the latest Core Tools (v4)
+
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
@@ -406,7 +407,7 @@ jobs:
           echo "=== Verifying requirements.txt contents ==="
           cat alpine-build/requirements.txt
 
-      - name: Create workdir and Dockerfile, run docker app build, push to local registry
+      - name: Change workdir, make Dockerfile, run docker build, push to local registry
         shell: bash
         run: | 
              cd alpine-build
@@ -419,7 +420,7 @@ jobs:
              echo "CMD [\"python\", \"app.py\"]" >> Dockerfile  
              sudo docker build -t tlc-alpine-app .
              # Show new container is alpine, not ubuntu server  
-             sudo docker run --rm tlc-alpine-app cat /etc/os-release               
+             sudo docker run --rm tlc-alpine-app cat /etc/os-release
                
              sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
              sudo docker push localhost:5000/tlc-alpine-app:latest     

@@ -1,0 +1,21 @@
+# redis-release.yaml
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: headlamp
+spec:
+  interval: 5m
+  targetNamespace: kube-system
+  chart:
+    spec:
+      chart: headlamp
+      version: 18.x.x
+      sourceRef:
+        kind: HelmRepository
+        name: github
+        namespace: flux-system
+  values:
+    image:
+      # Flux will parse the comments below and automatically replace these lines
+      repository: headlamp # {"$imagepolicy": "flux-system:redis-policy:repository"}
+      tag: latest # {"$imagepolicy": "flux-system:redis-policy:tag"}

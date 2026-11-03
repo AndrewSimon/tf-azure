@@ -1,0 +1,9 @@
+# headlamp-helmrepo.yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: github
+  namespace: flux-system
+spec:
+  url: https://kubernetes-sigs.github.io/headlamp/
+  interval: 1h
