@@ -103,6 +103,7 @@ resource "azurerm_storage_account" "demo" {
   account_replication_type = "LRS"
    # Set this argument to true to allow blob public access
   allow_nested_items_to_be_public = true
+  shared_access_key_enabled = true
 }
 
 resource "azurerm_storage_container" "function_code_container" {
