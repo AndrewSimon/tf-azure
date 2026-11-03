@@ -117,6 +117,9 @@ resource "azurerm_function_app_flex_consumption" "demo" {
   identity {
     type = "SystemAssigned"
   }
+  depends_on = [
+    azurerm_storage_account.demo
+  ]
 }
 
 ## This custom resource is a more reliable upload than via flex app resource above.
