@@ -43,9 +43,6 @@ tlcAlpineApp:
   - port: 80
     protocol: TCP
     targetPort: 80
-  - port: 80
-    protocol: TCP
-    targetPort: 80
   replicas: 1
   tolerations: []
   topologySpreadConstraints: []
