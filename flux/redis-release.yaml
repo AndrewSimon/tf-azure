@@ -16,6 +16,9 @@ spec:
         name: bitnami
         namespace: flux-system
   values:
+    auth:
+      enabled: true
+      existingSecret: "redis" 
     image:
       # Flux will parse the comments below and automatically replace these lines
       repository: redis # {"$imagepolicy": "flux-system:redis-policy:repository"}

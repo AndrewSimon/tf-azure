@@ -47,3 +47,10 @@ tlcAlpineApp:
   tolerations: []
   topologySpreadConstraints: []
   type: ClusterIP
+  rbac:
+    create: false
+# In the subchart values.yaml or parent HelmRelease values overrides:
+tlc-alpine-app:
+  rbac:
+    create: false  # Assuming the chart has a toggle to disable duplicate RBAC creation
+
