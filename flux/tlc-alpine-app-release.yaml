@@ -24,3 +24,8 @@ spec:
   values:
     # Your default chart configuration overrides
     replicaCount: 1
+    tlcAlpineApp:
+      app:
+        env:
+          configmapName: html-output-config
+          redisHost: flux-system-redis-master.flux-system.svc.cluster.local

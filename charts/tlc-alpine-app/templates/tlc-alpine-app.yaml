@@ -68,7 +68,7 @@ spec:
           valueFrom:
             secretKeyRef:
               key: redis-password
-              name: redis
+              name: flux-system-redis
         - name: REDIS_HOST
           value: {{ quote .Values.tlcAlpineApp.app.env.redisHost }}
         - name: CONFIGMAP_NAME
