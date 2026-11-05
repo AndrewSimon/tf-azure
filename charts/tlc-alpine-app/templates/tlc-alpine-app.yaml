@@ -109,7 +109,7 @@ spec:
         | nindent 8 }}
       volumes:
       - configMap:
-          name: {{ include "tlc-alpine-app.fullname" . }}-html-output-config
+          name: html-output-config
         name: html-volume
 ---
 apiVersion: networking.k8s.io/v1
