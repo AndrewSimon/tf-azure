@@ -123,54 +123,32 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}
-  labels:
-    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
-    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  name: tlc-alpine-app
 spec:
-  type: {{ .Values.service.type }}
   ports:
-  - port: {{ .Values.service.port }}
+  - port: 80
     targetPort: 80
     protocol: TCP
   selector:
-    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    app: tlc-alpine-app
 ---
 {{- if .Values.ingress.enabled }}
 # Ingress Routing config
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}
-  labels:
-    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
-    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-  {{- with .Values.ingress.annotations }}
+  name: tlc-alpine-ingress
+  namespace: tlc
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    kubernetes.io/ingress.class: traefik
 spec:
-  {{- if .Values.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className }}
-  {{- end }}
   rules:
-  {{- range .Values.ingress.hosts }}
-  - host: {{ .host | quote }}
-    http:
+  - http:
       paths:
-      {{- range .paths }}
-      - path: {{ .path }}
-        pathType: {{ .pathType }}
+      - path: /
+        pathType: Prefix
         backend:
           service:
-            name: {{ include "tlc-alpine-app.fullname" $ }}
+            name: tlc-alpine-app
             port:
-              number: {{ $.Values.service.port }}
-      {{- end }}
-  {{- end }}
-{{- end }}
+              number: 80    
