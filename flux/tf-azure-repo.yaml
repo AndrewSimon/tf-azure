@@ -7,4 +7,4 @@ spec:
   interval: 1m0s
   url: https://github.com/AndrewSimon/tf-azure.git # Replace with your repository URL
   ref:
-    branch: k8s
+    branch: tlc-alpine-helm-chart # change this to the branch you are actively pushing to
