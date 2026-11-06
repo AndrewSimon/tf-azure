@@ -154,6 +154,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: tlc-alpine-app
+            name: tlc-tlc-alpine-app # Run kubectl get svc -n tlc for the actual name
             port:
               number: 80    
