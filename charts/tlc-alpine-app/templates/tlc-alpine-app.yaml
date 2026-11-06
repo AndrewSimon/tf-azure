@@ -1,156 +1,140 @@
-{{ if .Values.serviceAccount.create }}
+# RBAC: Create a ServiceAccount for the Python App
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "tlc-alpine-app.serviceAccountName" . }}
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
-  {{- with .Values.serviceAccount.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
-{{- end }}
+  name: configmap-writer-sa
 ---
+# RBAC: Define permissions to read and update ConfigMaps
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-configmap-writer-role
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
+  name: configmap-writer-role
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - create
-  - update
-  - patch
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update", "patch"]
 ---
+# RBAC: Bind the Role to the ServiceAccount
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-configmap-writer-binding
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: '{{ include "tlc-alpine-app.fullname" . }}-configmap-writer-role'
+  name: configmap-writer-binding
 subjects:
-- kind: ServiceAccount
-  name: '{{ include "tlc-alpine-app.serviceAccountName" . }}'
-  namespace: '{{ .Release.Namespace }}'
+  - kind: ServiceAccount
+    name: configmap-writer-sa
+roleRef:
+  kind: Role
+  name: configmap-writer-role
+  apiGroup: rbac.authorization.k8s.io
 ---
+# The Python App Job/Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-tlc-alpine-app
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
+  name: tlc-alpine-app
 spec:
-  replicas: {{ .Values.tlcAlpineApp.replicas }}
+  replicas: 1
   selector:
     matchLabels:
       app: tlc-alpine-app
-    {{- include "tlc-alpine-app.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
         app: tlc-alpine-app
-      {{- include "tlc-alpine-app.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: configmap-writer-sa
       containers:
-      - env:
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: redis-password
-              name: flux-system-redis
-        - name: REDIS_HOST
-          value: {{ quote .Values.tlcAlpineApp.app.env.redisHost }}
-        - name: CONFIGMAP_NAME
-          value: {{ quote .Values.tlcAlpineApp.app.env.configmapName }}
-        - name: KUBERNETES_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.tlcAlpineApp.app.image.repository }}:{{ .Values.tlcAlpineApp.app.image.tag
-          | default .Chart.AppVersion }}
-        imagePullPolicy: {{ .Values.tlcAlpineApp.app.imagePullPolicy }}
-        name: app
-        ports:
-        - containerPort: 8080
-        resources: {}
-        volumeMounts:
-        - mountPath: /index.html
-          name: html-volume
-          subPath: index.html
-      - env:
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.tlcAlpineApp.nginx.image.repository }}:{{ .Values.tlcAlpineApp.nginx.image.tag
-          | default .Chart.AppVersion }}
-        name: nginx
-        ports:
-        - containerPort: 80
-        resources: {}
-        volumeMounts:
-        - mountPath: /usr/share/nginx/html
-          name: html-volume
-      nodeSelector: {{- toYaml .Values.tlcAlpineApp.nodeSelector | nindent 8 }}
-      serviceAccountName: {{ include "tlc-alpine-app.serviceAccountName" . }}
-      tolerations: {{- toYaml .Values.tlcAlpineApp.tolerations | nindent 8 }}
-      topologySpreadConstraints: {{- toYaml .Values.tlcAlpineApp.topologySpreadConstraints
-        | nindent 8 }}
+        - name: app
+          # Replace with your actual image path/tag
+          image: localhost:5000/tlc-alpine-app:latest 
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: flux-system-redis
+                  key: redis-password
+            - name: REDIS_HOST
+              value: "redis-master.flux-system.svc.cluster.local"
+            - name: CONFIGMAP_NAME
+              value: "html-output-config"
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+          - name: html-volume
+            mountPath: /index.html
+            subPath: index.html
+          ports:
+          - containerPort: 8080        
+        - name: nginx
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+          - name: html-volume
+            mountPath: /usr/share/nginx/html
       volumes:
-      - configMap:
+      - name: html-volume
+        configMap:
           name: html-output-config
-        name: html-volume
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-tlc-alpine-ingress
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
+  name: tlc-alpine-ingress
+  namespace: tlc
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:
   rules:
   - http:
       paths:
-      - backend:
-          service:
-            name: '{{ include "tlc-alpine-app.fullname" . }}-tlc-alpine-app'
-            port:
-              number: 80
-        path: /
+      - path: /
         pathType: Prefix
+        backend:
+          service:
+            name: tlc-alpine-app
+            port:
+              number: 80     
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-tlc-alpine-app
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
+  name: tlc-alpine-app
 spec:
-  type: {{ .Values.tlcAlpineApp.type }}
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
   selector:
     app: tlc-alpine-app
-    {{- include "tlc-alpine-app.selectorLabels" . | nindent 4 }}
-  ports:
-  {{- .Values.tlcAlpineApp.ports | toYaml | nindent 2 }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "tlc-alpine-app.fullname" . }}-html-output-config
-  labels:
-  {{- include "tlc-alpine-app.labels" . | nindent 4 }}
+  name: html-output-config
 data:
-  index.html: {{ .Values.htmlOutputConfig.indexHtml | toYaml | indent 1 }}
+  index.html: |
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>TLC Alpine App</title>
+        <style>
+            body { font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card { background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+            h1 { color: #0076ff; margin-bottom: 0.5rem; }
+        </style>
+    </head>
+    <body>
+        <h1>Hello from inside TLC Alpine App!</h1>
+        <p>This HTML is still the default gh action/k8s deployment generated ConfigMap.</p>
+        <p>The python generated configmap will take 1 to 2 minutes to sync automagically after container start, please be patient</p>
+        <p>Please keep hitting refresh and eventually this message will change.
+        <!--<p><strong>Total Hits from Redis:</strong> {visits}</p>-->
+    </body>
+    </html>
+
+    
