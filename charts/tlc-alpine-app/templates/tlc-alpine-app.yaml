@@ -132,7 +132,6 @@ spec:
   selector:
     app: tlc-alpine-app
 ---
-{{- if .Values.ingress.enabled }}
 # Ingress Routing config
 apiVersion: networking.k8s.io/v1
 kind: Ingress
