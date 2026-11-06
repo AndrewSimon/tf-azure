@@ -1,0 +1,31 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tlc-alpine-app
+  namespace: tlc
+spec:
+  targetNamespace: tlc
+  interval: 2m
+  chart:
+    spec:
+      # Relative path starting exactly from the Git repository root
+      chart: charts/tlc-alpine-app
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: tf-azure-repo
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    # Your default chart configuration overrides
+    replicaCount: 1
+    tlcAlpineApp:
+      app:
+        env:
+          configmapName: html-output-config
+          redisHost: flux-system-redis-master.flux-system.svc.cluster.local

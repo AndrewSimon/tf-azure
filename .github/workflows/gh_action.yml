@@ -199,7 +199,7 @@ jobs:
         shell: bash
         run: |
              # Add manifests to flux directory to grow the platform
-             /usr/local/bin/kubectl -n flux-system apply -f ./flux
+             /usr/local/bin/kubectl apply -f ./flux
 
       - name: Install Docker CE
         shell: bash
@@ -275,7 +275,7 @@ jobs:
           from kubernetes.client.rest import ApiException
 
           # 1. Connection Configurations from Environment Variables
-          REDIS_HOST = "redis-master.flux-system.svc.cluster.local"
+          REDIS_HOST = os.getenv("REDIS_HOST", "redis-master.flux-system.svc.cluster.local")
           REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
           REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
           CONFIGMAP_NAME = os.getenv("CONFIGMAP_NAME", "html-output-config")
@@ -428,15 +428,15 @@ jobs:
         run: |
              sleep 15
              ## Copy redis password to tlc namespace    
-             /usr/local/bin/kubectl get secret redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
+             /usr/local/bin/kubectl get secret flux-system-redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
              # /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'             
              #/usr/local/bin/kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
  
-      - name: Deploy tlc-alpine-app to k3s
-        continue-on-error: true
-        id: k3s-alpine-deploy      
-        shell: bash
-        run: /usr/local/bin/kubectl -n tlc apply -f ./charts/tlc-alpine-app.yaml
+      #- name: Deploy tlc-alpine-app to k3s
+      #  continue-on-error: true
+      #  id: k3s-alpine-deploy      
+      #  shell: bash
+      #  run: /usr/local/bin/kubectl -n tlc apply -f ./charts/tlc-alpine-app.yaml
 
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
