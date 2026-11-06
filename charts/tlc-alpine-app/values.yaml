@@ -1,5 +1,32 @@
-htmlOutputConfig:
-  indexHtml: |-
+# Global and default configurations for the tlc-alpine-app chart
+
+replicaCount: 1
+
+image:
+  app:
+    repository: localhost:5000/tlc-alpine-app
+    tag: latest
+    pullPolicy: Always
+  nginx:
+    repository: nginx
+    tag: 1.25-alpine
+    pullPolicy: IfNotPresent
+
+rbac:
+  create: true
+  serviceAccountName: configmap-writer-sa
+  roleName: configmap-writer-role
+  bindingName: configmap-writer-binding
+
+redis:
+  host: "flux-system-redis-master.flux-system.svc.cluster.local"
+  secretName: flux-system-redis
+  secretKey: redis-password
+
+configMap:
+  name: html-output-config
+  # Initial default index.html content
+  defaultHtml: |
     <html>
     <head>
         <meta charset="UTF-8">
@@ -19,31 +46,18 @@ htmlOutputConfig:
         <!--<p><strong>Total Hits from Redis:</strong> {visits}</p>-->
     </body>
     </html>
-kubernetesClusterDomain: cluster.local
-serviceAccount:
-  annotations: {}
-  automount: true
-  create: true
-  name: ""
-tlcAlpineApp:
-  app:
-    env:
-      configmapName: html-output-config
-      redisHost: flux-system-redis-master.flux-system.svc.cluster.local
-    image:
-      repository: localhost:5000/tlc-alpine-app
-      tag: latest
-    imagePullPolicy: Always
-  nginx:
-    image:
-      repository: nginx
-      tag: 1.25-alpine
-  nodeSelector: {}
-  ports:
-  - port: 80
-    protocol: TCP
-    targetPort: 80
-  replicas: 1
-  tolerations: []
-  topologySpreadConstraints: []
+
+service:
   type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix

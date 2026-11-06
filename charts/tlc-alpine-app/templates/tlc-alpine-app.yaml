@@ -1,14 +1,25 @@
+{{- if .Values.rbac.create }}
 # RBAC: Create a ServiceAccount for the Python App
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: configmap-writer-sa
+  name: {{ .Values.rbac.serviceAccountName | default (include "tlc-alpine-app.fullname" .) }}
+  labels:
+    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 ---
 # RBAC: Define permissions to read and update ConfigMaps
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: configmap-writer-role
+  name: {{ .Values.rbac.roleName | default (printf "%s-role" (include "tlc-alpine-app.fullname" .)) }}
+  labels:
+    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -18,46 +29,73 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: configmap-writer-binding
+  name: {{ .Values.rbac.bindingName | default (printf "%s-binding" (include "tlc-alpine-app.fullname" .)) }}
+  labels:
+    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 subjects:
   - kind: ServiceAccount
-    name: configmap-writer-sa
+    name: {{ .Values.rbac.serviceAccountName | default (include "tlc-alpine-app.fullname" .) }}
+    namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
-  name: configmap-writer-role
+  name: {{ .Values.rbac.roleName | default (printf "%s-role" (include "tlc-alpine-app.fullname" .)) }}
   apiGroup: rbac.authorization.k8s.io
 ---
-# The Python App Job/Deployment
+{{- end }}
+# ConfigMap for initial default template
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configMap.name }}
+  labels:
+    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  index.html: |
+{{ .Values.configMap.defaultHtml | indent 4 }}
+---
+# The Python App Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tlc-alpine-app
+  name: {{ include "tlc-alpine-app.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: tlc-alpine-app
+      app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: tlc-alpine-app
+        app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      serviceAccountName: configmap-writer-sa
+      serviceAccountName: {{ .Values.rbac.serviceAccountName | default (include "tlc-alpine-app.fullname" .) }}
       containers:
         - name: app
-          # Replace with your actual image path/tag
-          image: localhost:5000/tlc-alpine-app:latest 
-          imagePullPolicy: Always
+          image: "{{ .Values.image.app.repository }}:{{ .Values.image.app.tag }}"
+          imagePullPolicy: {{ .Values.image.app.pullPolicy }}
           env:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: flux-system-redis
-                  key: redis-password
+                  name: {{ .Values.redis.secretName }}
+                  key: {{ .Values.redis.secretKey }}
             - name: REDIS_HOST
-              value: "flux-system-redis-master.flux-system.svc.cluster.local"
+              value: {{ .Values.redis.host | quote }}
             - name: CONFIGMAP_NAME
-              value: "html-output-config"
+              value: {{ .Values.configMap.name | quote }}
             - name: KUBERNETES_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -69,7 +107,8 @@ spec:
           ports:
           - containerPort: 8080        
         - name: nginx
-          image: nginx:1.25-alpine
+          image: "{{ .Values.image.nginx.repository }}:{{ .Values.image.nginx.tag }}"
+          imagePullPolicy: {{ .Values.image.nginx.pullPolicy }}
           ports:
             - containerPort: 80
           volumeMounts:
@@ -78,8 +117,28 @@ spec:
       volumes:
       - name: html-volume
         configMap:
-          name: html-output-config
+          name: {{ .Values.configMap.name }}
 ---
+# Service exposing Nginx container on port 80
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tlc-alpine-app.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: tlc-alpine-app
+---
+# Ingress Routing config
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -95,46 +154,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: tlc-alpine-app
+            name: tlc-tlc-alpine-app # Run kubectl get svc -n tlc for the actual name
             port:
-              number: 80     
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: tlc-alpine-app
-spec:
-  ports:
-  - port: 80
-    targetPort: 80
-    protocol: TCP
-  selector:
-    app: tlc-alpine-app
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: html-output-config
-data:
-  index.html: |
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TLC Alpine App</title>
-        <style>
-            body { font-family: sans-serif; background-color: #f4f4f9; color: #333; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .card { background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
-            h1 { color: #0076ff; margin-bottom: 0.5rem; }
-        </style>
-    </head>
-    <body>
-        <h1>Hello from inside TLC Alpine App!</h1>
-        <p>This HTML is still the default gh action/k8s deployment generated ConfigMap.</p>
-        <p>The python generated configmap will take 1 to 2 minutes to sync automagically after container start, please be patient</p>
-        <p>Please keep hitting refresh and eventually this message will change.
-        <!--<p><strong>Total Hits from Redis:</strong> {visits}</p>-->
-    </body>
-    </html>
-
-    
+              number: 80    
