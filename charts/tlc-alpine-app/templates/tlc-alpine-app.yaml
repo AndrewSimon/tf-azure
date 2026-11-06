@@ -55,7 +55,7 @@ spec:
                   name: flux-system-redis
                   key: redis-password
             - name: REDIS_HOST
-              value: "redis-master.flux-system.svc.cluster.local"
+              value: "flux-system-redis-master.flux-system.svc.cluster.local"
             - name: CONFIGMAP_NAME
               value: "html-output-config"
             - name: KUBERNETES_NAMESPACE
