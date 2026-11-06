@@ -123,16 +123,22 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tlc-alpine-app
-  namespace: tlc
+  name: {{ include "tlc-alpine-app.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "tlc-alpine-app.name" . }}
+    helm.sh/chart: {{ include "tlc-alpine-app.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
+  type: {{ .Values.service.type }}
   ports:
-  - port: 80
+  - port: {{ .Values.service.port }}
     targetPort: 80
     protocol: TCP
   selector:
-    name: tlc-alpine-app
+    app.kubernetes.io/name: tlc-alpine-app
 ---
+{{- if .Values.ingress.enabled }}
 # Ingress Routing config
 apiVersion: networking.k8s.io/v1
 kind: Ingress
