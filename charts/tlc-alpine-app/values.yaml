@@ -50,6 +50,7 @@ configMap:
 service:
   type: ClusterIP
   port: 80
+  selector: app.kubernetes.io/name: tlc-alpine-app
 
 ingress:
   enabled: true
