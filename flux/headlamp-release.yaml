@@ -17,6 +17,8 @@ spec:
         name: github
         namespace: flux-system
   values:
+    config:
+      pluginsDir: /headlamp/plugins
     image:
       repository: headlamp-k8s/headlamp
       tag: latest
@@ -25,3 +27,17 @@ spec:
     service:
       type: NodePort                        # Changes the service type to NodePort
       nodePort: 30443
+    # Persistence for plugins
+    persistentVolumeClaim:
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+      size: 1Gi
+      storageClassName: standard
+    volumeMounts:
+      - name: headlamp-plugins
+        mountPath: /headlamp/plugins
+    volumes:
+      - name: headlamp-plugins
+        persistentVolumeClaim:
+          claimName: headlamp
