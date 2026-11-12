@@ -289,7 +289,7 @@ jobs:
               # Connect to the Flux System Deployed Memcached server (Default port: 11211)
               client = Client(("memcached.flux-system.svc.cluster.local", 11211))
 
-             # Define your 3 key-value pairs in a dictionary
+              # Define your 3 key-value pairs in a dictionary
               data = { "user:101:name": "Andrew", "user:101:role": "Admin", "user:101:status": "Active", }
 
               # Save all 3 key-value pairs at once
