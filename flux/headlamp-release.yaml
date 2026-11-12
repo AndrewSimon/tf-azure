@@ -11,7 +11,7 @@ spec:
   chart:
     spec:
       chart: headlamp
-      version: 0.46.0
+      version: "*"
       sourceRef:
         kind: HelmRepository
         name: github
@@ -19,6 +19,28 @@ spec:
   values:
     config:
       pluginsDir: /headlamp/plugins
+    # Init container to copy the Flux plugin into a shared plugin directory
+    initContainers:
+      - name: headlamp-plugins
+        image: ghcr.io/headlamp-k8s/headlamp-plugin-flux:latest
+        imagePullPolicy: Always
+        command:
+          - /bin/sh
+          - -c
+          - mkdir -p /headlamp/plugins && cp -vr /plugins/* /headlamp/plugins/ && chown -vR 100:101 /headlamp
+        securityContext:
+          runAsNonRoot: false
+          privileged: false
+          runAsUser: 0
+          runAsGroup: 0
+        volumeMounts:
+          - name: headlamp-plugins
+            mountPath: /headlamp/plugins
+    containers:
+    - name: headlamp
+      image: ghcr.io/kubernetes-sigs/headlamp:latest
+      args:
+        - '-plugins-dir=/headlamp/plugins'         
     image:
       repository: headlamp-k8s/headlamp
       tag: latest
