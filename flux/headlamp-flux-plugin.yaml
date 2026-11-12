@@ -17,7 +17,7 @@ spec:
         namespace: flux-system
   values:
     config:
-      pluginsDir: /build/plugins
+      pluginsDir: /headlamp/plugins
     # Init container to copy the Flux plugin into a shared plugin directory
     initContainers:
       - name: headlamp-plugins
@@ -26,7 +26,7 @@ spec:
         command:
           - /bin/sh
           - -c
-          - mkdir -p /build/plugins && cp -vr /plugins/* /build/plugins/ && chown -vR 100:101 /build && sleep 300
+          - mkdir -p /headlamp/plugins && cp -vr /plugins/* /headlamp/plugins/ && chown -vR 100:101 /headlamp
         securityContext:
           runAsNonRoot: false
           privileged: false
@@ -34,16 +34,16 @@ spec:
           runAsGroup: 0
         volumeMounts:
           - name: headlamp-plugins
-            mountPath: /build/plugins
+            mountPath: /headlamp/plugins
     containers:
     - name: headlamp
       image: ghcr.io/kubernetes-sigs/headlamp:latest
       args:
-        - '-plugins-dir=/build/plugins'
+        - '-plugins-dir=/headlamp/plugins'
     # Volume for plugins shared between init and main containers
     volumeMounts:
       - name: headlamp-plugins
-        mountPath: /build/plugins
+        mountPath: /headlamp/plugins
     volumes:
       - name: headlamp-plugins
         emptyDir: {}
