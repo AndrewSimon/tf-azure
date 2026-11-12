@@ -434,7 +434,7 @@ jobs:
              echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile
              echo "COPY requirements.txt ." >> Dockerfile
              echo "COPY app.py ." >> Dockerfile
-             echo "RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps" >> Dockerfile
+             echo "RUN apk add --no-cache python3 py3-pip && apk add --no-cache --virtual .build-deps py3-pymemcache gcc musl-dev python3-dev && pip install --no-cache-dir --break-system-packages -r requirements.txt && apk del .build-deps" >> Dockerfile
              echo "CMD [\"python\", \"app.py\"]" >> Dockerfile  
              sudo docker build -t tlc-alpine-app .
              # Show new container is alpine, not ubuntu server  
