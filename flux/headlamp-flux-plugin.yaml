@@ -10,7 +10,7 @@ spec:
   chart:
     spec:
       chart: headlamp
-      version: "0.46.0"
+      version: "*"
       sourceRef:
         kind: HelmRepository
         name: github
@@ -26,7 +26,7 @@ spec:
         command:
           - /bin/sh
           - -c
-          - mkdir -p /build/plugins && cp -r /plugins/* /build/plugins/ && chown -R 100:101 /build
+          - mkdir -p /build/plugins && cp -vr /plugins/* /build/plugins/ && chown -vR 100:101 /build && sleep 300
         securityContext:
           runAsNonRoot: false
           privileged: false
@@ -35,6 +35,11 @@ spec:
         volumeMounts:
           - name: headlamp-plugins
             mountPath: /build/plugins
+    containers:
+    - name: headlamp
+      image: ghcr.io/kubernetes-sigs/headlamp:latest
+      args:
+        - '-plugins-dir=/build/plugins'
     # Volume for plugins shared between init and main containers
     volumeMounts:
       - name: headlamp-plugins
