@@ -274,6 +274,8 @@ jobs:
           # from redis.cluster import RedisCluster
           from kubernetes import client, config
           from kubernetes.client.rest import ApiException
+          # This is for memcache 
+          from pymemcache.client.base import Client
 
           # 1. Connection Configurations from Environment Variables
           REDIS_HOST = os.getenv("REDIS_HOST", "redis-master.flux-system.svc.cluster.local")
@@ -282,6 +284,24 @@ jobs:
           CONFIGMAP_NAME = os.getenv("CONFIGMAP_NAME", "html-output-config")
           NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
 
+          # Connect to the Flux System Deployed Memcached server (Default port: 11211)
+          client = Client(("memcached.flux-system.svc.cluster.local", 11211))
+
+# Define your 3 key-value pairs in a dictionary
+          data = {
+              "user:101:name": "Andrew",
+              "user:101:role": "Admin",
+              "user:101:status": "Active",
+          }
+
+          # Save all 3 key-value pairs at once
+          client.set_many(data)
+
+          # Verify by retrieving them (returns a dictionary of bytes)
+          results = client.get_many(["user:101:name", "user:101:role", "user:101:status"])
+          print(results)
+          
+          
           def htserver():
               PORT = 8080
               Handler = http.server.SimpleHTTPRequestHandler
