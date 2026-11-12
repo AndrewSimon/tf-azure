@@ -2,14 +2,14 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: memcached
-  namespace: default
+  namespace: flux-system
 spec:
   interval: 10m
   timeout: 5m
   chart:
     spec:
       chart: memcached
-      version: "7.x"
+      version: "*"
       sourceRef:
         kind: HelmRepository
         name: bitnami
