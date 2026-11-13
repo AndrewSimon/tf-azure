@@ -1,0 +1,46 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sonarqube
+  namespace: flux-system
+spec:
+  interval: 10m
+  timeout: 10m
+  chart:
+    spec:
+      chart: sonarqube
+      version: "2026.5.x"
+      sourceRef:
+        kind: HelmRepository
+        name: sonarqube
+        namespace: flux-system
+      interval: 15m
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  values:
+    # For Community Build, set community.enabled: true and remove edition
+    community:
+      enabled: true
+    # edition: developer
+
+    # Required for Kubernetes health probes to pass
+    monitoringPasscode: "ChangeMeToASecurePasscode"
+
+    persistence:
+      enabled: true
+      size: 10Gi
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi

@@ -1,0 +1,27 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: trivy-operator
+  namespace: flux-system
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: trivy-operator
+      version: ">=0.24.0" # Pin to a specific version in production (e.g., "0.25.0")
+      sourceRef:
+        kind: HelmRepository
+        name: aquasecurity
+        namespace: flux-system
+      interval: 1h
+  install:
+    createNamespace: true
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    trivy:
+      ignoreUnfixed: true
+      severity: CRITICAL,HIGH
+    operator:
+      scanJobsConcurrentLimit: 3

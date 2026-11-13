@@ -280,7 +280,7 @@ jobs:
           REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
           REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
           CONFIGMAP_NAME = os.getenv("CONFIGMAP_NAME", "html-output-config")
-          NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
+          NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "tlc")
 
           def htserver():
               PORT = 8080
