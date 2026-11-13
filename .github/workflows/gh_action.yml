@@ -275,7 +275,7 @@ jobs:
           from kubernetes import client, config
           from kubernetes.client.rest import ApiException
           # This is for memcache 
-          from pymemcache.client.base import Client
+          # from pymemcache.client.base import Client
 
           # 1. Connection Configurations from Environment Variables
           REDIS_HOST = os.getenv("REDIS_HOST", "redis-master.flux-system.svc.cluster.local")
