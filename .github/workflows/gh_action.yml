@@ -452,13 +452,13 @@ jobs:
           EOP
           
           # First scan produces a report showing directories not scanned
-          envsubst '${LOCALIP}' < trivy-job.yaml  | kubectl apply -f -
+          kubectl delete -f trivy-job.yaml --ignore-not-found && envsubst '${LOCALIP}' < trivy-job.yaml  | kubectl apply -f -
           # Following the log is risky if the container keeps running
           # /usr/local/bin/kubectl logs -n flux-system -f job/trivy-scan-job
           
           # Patch running tlc-alpine-app deploy - add trivy scan ephemeral sidecar
           # More detail though may
-          export POD=$(kubectl get pods -n tlc --no-headers | awk '/tlc--n tlc alpine-app/ {print $1}'|head -n1)  # Get pod name first
+          export POD=$(kubectl get pods -n tlc --no-headers | awk '/tlc-alpine-app/ {print $1}'|head -n1)  # Get pod name first
           kubectl patch pod $POD -n tlc --subresource=ephemeralcontainers --type=strategic --patch-file ephemeral-patch.yaml
           
           
@@ -472,7 +472,7 @@ jobs:
              echo "************************************"
              echo ""
              echo " Copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
-             echo " To get a token, run: ssh azureuser@$IP -n \"/usr/local/bin/kubectl create token headlamp --namespace kube-system\""
+             echo " To get a token, run: scp azureuser@20.44.102.121:/tmp/k3s.yaml ~/.kube/config; kubectl create token headlamp --namespace kube-system"
              echo ""             
              echo "************************************"
 
