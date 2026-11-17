@@ -34,25 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pymemcache urllib3 PyJWT cryptography azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-functions azure-keyvault-secrets
           pip install --target=".python_packages/lib/site-packages" -r requirements.txt
-          
-          ## BECAUSE OF UNRELIABLE CROSS PLATFORM REPO KEYS, THIS IS HIGHLY PRONE TO BREAK
-          # This version is deprecated: Install the Microsoft package repository GPG key
-          #curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-          #sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
 
-          # Add the official Microsoft APT source list for Ubuntu
-          #sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
-          #sudo install -m 0755 -d /etc/apt/keyrings
-          #curl -fsSL https://packages.microsoft.com/keys/microsoft-2025.asc | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/EE4D7792F748182B.gpg
-          ##sudo rm -rf /etc/apt/keyrings/EE4D7792F748182B.gpg
-          #sudo gpg --batch --no-tty --keyserver hkps://keyserver.ubuntu.com --recv-keys EE4D7792F748182B
-          #sudo gpg --batch --no-tty -a --export EE4D7792F748182B | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/EE4D7792F748182B.gpg
-          #sudo chmod 644 /etc/apt/keyrings/EE4D7792F748182B.gpg
-          #sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/EE4D7792F748182B.gpg]  https://packages.microsoft.com/repos/microsoft-ubuntu-resolute-prod/apt stable main" >> /etc/apt/sources.list.d/dotnetdev.list'
-          
-          ## INSTEAD WE FETCH MS'S 24.04 PACKAGE FROM HERE - LATEST ONES ARE AT THE BOTTOM OF THE PAGE
-          # https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/
-          # Update APT and install the latest Core Tools (v4)
           sudo apt-get update
           echo "Fetching azure function core tool deb package in silent mode, please be patient"
           curl -sSL -o ./func.deb https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/a/azure-functions-core-tools/azure-functions-core-tools_4.9.0-1_amd64.deb 
@@ -85,10 +67,7 @@ jobs:
 #      - name: Terraform Destroy terraform_data.upload_function
 #        id: delete-upload-function
 #        run: terraform destroy -refresh=false -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
-#      - name: Terraform Destroy Upload (only)
-#        id: destroy
-#        run: terraform destroy -auto-approve -var=token=${{ secrets.PERSONAL_ACCESS_TOKEN }} -var=adminpass=${{ secrets.ADMIN_PASSWORD }} -target=terraform_data.upload_function
-      
+     
       - name: Terraform Apply and Python Build
         id: apply
         run: |
@@ -154,24 +133,7 @@ jobs:
               [ ! -f "/usr/sbin/helm" ] && curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
               [ ! -f "/usr/sbin/helm" ] && echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
               sudo apt-get update -y && sudo apt-get -y install helm    
-
-#      - name: Run Headlamp install
-#        continue-on-error: true
-#        id: headlamp-step      
-#        shell: bash
-#        run:  |
-#               export FQDN=${{ env.FQDN }}
-#               /usr/sbin/helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/ 
-#               /usr/sbin/helm repo update
-#               /usr/sbin/helm upgrade --install headlamp headlamp/headlamp --namespace kube-system --set service.type=NodePort --set service.port=80
-#               /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'
-#               echo "Copy and paste the following on your local device command-line:"
-#               echo "mkdir ~/.kube ; scp azureuserr@$FQDN:/tmp/k3s.yaml ~/.kube/config"
-#               echo "kubectl create token headlamp --namespace kube-system"
-#               echo "Copy the token created from above command, using a browser navigate to http://$FQDN:30443, and paste it into token text box"
-#               
-#               kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
-      
+  
       - name: Checkout Code
         uses: actions/checkout@v4      
                                             
@@ -426,11 +388,7 @@ jobs:
              sudo docker push localhost:5000/tlc-alpine-app:latest
              # Tag and push the image for k8s to be able to reach the image, as well
              sudo docker tag tlc-alpine-app $LOCALIP:5000/tlc-alpine-app:latest
-             sudo docker push $LOCALIP:5000/tlc-alpine-app:latest
-
-      # Need to checkout code again, this time for the k3s assets
-      #- name: Checkout Code
-      #  uses: actions/checkout@v4            
+             sudo docker push $LOCALIP:5000/tlc-alpine-app:latest     
 
       - name: May have to wait a few more seconds for flux deployed resources to exist
         continue-on-error: true
@@ -442,7 +400,7 @@ jobs:
              /usr/local/bin/kubectl get secret flux-system-redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
 
       # Run Trivy scan on local registry image
-      - name: Scan tlc-alpine-app image
+      - name: Scan tlc-alpine-app image (no scan data) and scan running image (creates scan data)
         continue-on-error: true
         run: |
           #export IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
@@ -469,12 +427,41 @@ jobs:
                       - --severity
                       - HIGH,CRITICAL
                       - --no-progress
+                      - --scanners
+                      - vuln,misconfig,secret
+                      - --pkg-types
+                      - os,library
                       - ${LOCALIP}:5000/tlc-alpine-app:latest # Target image to be scanned by k8s trivy
-          
+
           EOJ
+          cat << 'EOP' > ephemeral-patch.yaml
+          spec:
+            ephemeralContainers:
+              - name: trivy-ephemeral-scan
+                image: aquasec/trivy:latest
+                # Target the main application container to share its process namespace
+                targetContainerName: app
+                command:
+                  - trivy
+                  - rootfs
+                  - --scanners
+                  - vuln
+                  - --severity
+                  - HIGH,CRITICAL
+                  - /proc/1/root
+          EOP
           
-          envsubst '${LOCALIP}' < trivy-job.yaml  | kubectl apply -f -
-          /usr/local/bin/kubectl logs -n flux-system -f job/trivy-scan-job
+          # First scan produces a report showing directories not scanned
+          kubectl delete -f trivy-job.yaml --ignore-not-found && envsubst '${LOCALIP}' < trivy-job.yaml  | kubectl apply -f -
+          # Following the log is risky if the container keeps running
+          # /usr/local/bin/kubectl logs -n flux-system -f job/trivy-scan-job
+          
+          # Patch running tlc-alpine-app deploy - add trivy scan ephemeral sidecar
+          # More detail though may
+          export POD=$(kubectl get pods -n tlc --no-headers | awk '/tlc-alpine-app/ {print $1}'|head -n1)  # Get pod name first
+          kubectl patch pod $POD -n tlc --subresource=ephemeralcontainers --type=strategic --patch-file ephemeral-patch.yaml
+          
+          
                     
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
@@ -485,8 +472,10 @@ jobs:
              echo "************************************"
              echo ""
              echo " Copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
-             echo " To get a token, run: ssh azureuser@$IP -n \"/usr/local/bin/kubectl create token headlamp --namespace kube-system\""
-             echo ""             
+             echo " To get a token, run: scp azureuser@$IP:/tmp/k3s.yaml ~/.kube/config; kubectl create token headlamp --namespace kube-system"
+             echo "" 
+             echo " Kill this job so next can start, run: ssh azureuser@$IP -n \"sudo killall sleep\"  "            
+             echo ""
              echo "************************************"
 
       - name: Run sleep 45  minutes to keep runner up
