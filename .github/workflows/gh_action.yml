@@ -472,8 +472,10 @@ jobs:
              echo "************************************"
              echo ""
              echo " Copy and paste headlamp token to http://${{ env.FQDN }}:30443 "
-             echo " To get a token, run: scp azureuser@20.44.102.121:/tmp/k3s.yaml ~/.kube/config; kubectl create token headlamp --namespace kube-system"
-             echo ""             
+             echo " To get a token, run: scp azureuser@$IP:/tmp/k3s.yaml ~/.kube/config; kubectl create token headlamp --namespace kube-system"
+             echo "" 
+             echo " Kill this job so next can start, run: ssh azureuser@$IP -n \"sudo killall sleep\"  "            
+             echo ""
              echo "************************************"
 
       - name: Run sleep 45  minutes to keep runner up
