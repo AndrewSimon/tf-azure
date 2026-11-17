@@ -256,9 +256,9 @@ jobs:
 
                docker --version
       
-      - name: Run a local containerized Docker registry   
+      - name: Run a local containerized Docker registry accessible by remote ipv4   
         shell: bash
-        run: sudo docker run -d -p 5000:5000 --restart always --name tlc-registry registry:2 || true
+        run: sudo docker run -d -p 0.0.0.0:5000:5000 --restart always --name tlc-registry registry:2 || true
       
       - name: Generate Backend Files - app.py
         run: |
@@ -405,8 +405,11 @@ jobs:
           cat alpine-build/requirements.txt
 
       - name: Change workdir, make Dockerfile, run docker build, push to local registry
+        continue-on-error: true        
         shell: bash
-        run: | 
+        run: |
+             export IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')             
+             export LOCALIP=$(curl -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[] | .ipv4.ipAddress[0].privateIpAddress')
              cd alpine-build
              echo "FROM alpine:latest" > Dockerfile
              echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile
@@ -420,28 +423,59 @@ jobs:
              sudo docker run --rm tlc-alpine-app cat /etc/os-release
                
              sudo docker tag tlc-alpine-app localhost:5000/tlc-alpine-app:latest
-             sudo docker push localhost:5000/tlc-alpine-app:latest     
+             sudo docker push localhost:5000/tlc-alpine-app:latest
+             # Tag and push the image for k8s to be able to reach the image, as well
+             sudo docker tag tlc-alpine-app $LOCALIP:5000/tlc-alpine-app:latest
+             sudo docker push $LOCALIP:5000/tlc-alpine-app:latest
+
       # Need to checkout code again, this time for the k3s assets
-      - name: Checkout Code
-        uses: actions/checkout@v4      
-      
+      #- name: Checkout Code
+      #  uses: actions/checkout@v4            
+
       - name: May have to wait a few more seconds for flux deployed resources to exist
         continue-on-error: true
-        id: patch-flux-deploys      
+        id: run-flux-deploys      
         shell: bash     
         run: |
              sleep 1
              ## Copy redis password to tlc namespace    
              /usr/local/bin/kubectl get secret flux-system-redis -n flux-system -o json | jq 'del(.metadata.namespace, .metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"])' | kubectl apply -n tlc -f - || true
-             # /usr/local/bin/kubectl patch svc headlamp -n kube-system --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30443}]'             
-             #/usr/local/bin/kubectl patch deployment headlamp -n kube-system -p '{"spec":{"template":{"metadata":{"labels":{"routing-target":"headlamp"}}}}}'
- 
-      #- name: Deploy tlc-alpine-app to k3s
-      #  continue-on-error: true
-      #  id: k3s-alpine-deploy      
-      #  shell: bash
-      #  run: /usr/local/bin/kubectl -n tlc apply -f ./charts/tlc-alpine-app.yaml
 
+      # Run Trivy scan on local registry image
+      - name: Scan tlc-alpine-app image
+        continue-on-error: true
+        run: |
+          #export IP=$(curl -s  -H "Metadata: true"  "http://169.254.169.254/metadata/loadbalancer?api-version=2020-10-01" | jq -r '.loadbalancer.publicIpAddresses[0].frontendIpAddress')
+          export LOCALIP=$(curl -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[] | .ipv4.ipAddress[0].privateIpAddress')
+          cat << 'EOJ' > trivy-job.yaml
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: trivy-scan-job
+            namespace: flux-system
+          spec:
+            ttlSecondsAfterFinished: 3600 # Automatically deletes the job after 1 hour
+            backoffLimit: 1
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: trivy-client
+                    image: aquasec/trivy:latest # Match this version to your deployed Trivy server
+                    args:
+                      - image
+                      - --server
+                      - http://trivy-service.flux-system.svc.cluster.local:4954
+                      - --severity
+                      - HIGH,CRITICAL
+                      - --no-progress
+                      - ${LOCALIP}:5000/tlc-alpine-app:latest # Target image to be scanned by k8s trivy
+          
+          EOJ
+          
+          envsubst '${LOCALIP}' < trivy-job.yaml  | kubectl apply -f -
+          /usr/local/bin/kubectl logs -n flux-system -f job/trivy-scan-job
+                    
       - name: Instructions on obtaining a headlamp token
         continue-on-error: true
         id: cred-step      

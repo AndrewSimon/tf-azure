@@ -25,3 +25,4 @@ spec:
       severity: CRITICAL,HIGH
     operator:
       scanJobsConcurrentLimit: 3
+      builtInTrivyServer: true
